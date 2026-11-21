@@ -92,6 +92,14 @@ th { color: var(--muted); font-weight: 600; font-size: .78rem; text-transform: u
 td.num, th.num { text-align: right; }
 .mono { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: .82rem; }
 .muted { color: var(--muted); }
+.user-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; padding: 0; border-radius: 50%;
+  background: #fff; border: 1px solid var(--border); color: var(--muted);
+}
+.user-icon:hover:not(:disabled) { color: var(--accent-dark); border-color: var(--accent); }
+.user-icon.active { color: #fff; background: var(--accent); border-color: var(--accent); }
+.user-icon:disabled { cursor: default; }
 .center { text-align: center; }
 table.compact td { white-space: normal; }
 

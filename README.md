@@ -93,10 +93,38 @@ How it behaves:
 - The sheet's columns match the Excel import template, so a backup can be re-imported with **Import from Excel**.
 - Disconnecting stops backups; it never deletes your sheet or file.
 
-## Where data is stored
-Members are saved in the browser's localStorage, so data lives on the device/browser you use
-and is not shared between devices. Clearing browser data deletes it. To move to a real
-database later, replace `src/lib/storage.js` — the rest of the app doesn't need to change.
+## Storing members in Google Sheets
+Members live in a **private Google Sheet**. The browser never talks to Google: it calls `/api/members`
+(which needs your login), and that server code reads and writes the sheet using a Google *service
+account* (a robot user that can only see sheets you share with it). Nothing is stored in the browser,
+so every device and browser sees the same list.
+
+One-time setup (about 5 minutes, free):
+1. [Google Cloud Console](https://console.cloud.google.com/) → create a project → **APIs & Services → Library**
+   → enable **Google Sheets API**.
+2. **IAM & Admin → Service Accounts → Create service account** (any name, skip the optional steps).
+3. Open it → **Keys → Add key → Create new key → JSON**. A file downloads. Keep it private; never commit it.
+4. Create a new Google Sheet, click **Share**, paste the service account's email (the `client_email` in the
+   JSON file) and give it **Editor** access.
+5. Put three values in `.env.local` (restart `npm run dev`) **and** in Vercel → Settings → Environment Variables,
+   then redeploy:
+   ```
+   GOOGLE_SERVICE_ACCOUNT_EMAIL=<client_email from the JSON>
+   GOOGLE_PRIVATE_KEY="<private_key from the JSON, in double quotes, keeping the \n parts>"
+   GOOGLE_SHEET_ID=<the sheet's link, or the id between /d/ and /edit>
+   ```
+   These are secrets, so they must **not** start with `VITE_`.
+
+The app creates a `Members` tab with the header row on first use. You can open the sheet and read or fix
+rows by hand (keep the **Member ID** column filled in, and don't insert rows above the header); changes
+show up next time the page loads. Deleting a member deletes its row.
+
+If the browser still holds members from the old localStorage version, a banner offers to upload them
+to the sheet once.
+
+Good to know: Google Sheets is not a real database. It is fine for one gym with a few hundred
+members and a couple of staff, but two people saving at the exact same moment can briefly collide, and
+every save takes about a second. If you outgrow it, replace `src/lib/storage.js` and `api/members.js`.
 
 ## Project layout
 ```

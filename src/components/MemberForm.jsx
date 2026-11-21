@@ -32,16 +32,26 @@ export default function MemberForm({ members, onAdd }) {
     [form.startDate, form.plan],
   );
 
-  const submit = (e) => {
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e) => {
     e.preventDefault();
     const result = createMember(form, members);
     if (result.errors.length) {
       setErrors(result.errors);
       return;
     }
-    onAdd(result.member);
-    setSaved(result.member);
-    setForm(emptyForm());
+    setBusy(true);
+    try {
+      // onAdd saves to the Google Sheet and returns the member as stored there.
+      const stored = await onAdd(result.member);
+      setSaved(stored || result.member);
+      setForm(emptyForm());
+    } catch (err) {
+      setErrors([err.message || "Couldn't save the member. Please try again."]);
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -109,7 +119,9 @@ export default function MemberForm({ members, onAdd }) {
           Member agrees to receive WhatsApp messages (renewal reminders, updates)
         </label>
 
-        <button type="submit" className="primary" disabled={Boolean(duplicate)}>Register member</button>
+        <button type="submit" className="primary" disabled={Boolean(duplicate) || busy}>
+          {busy ? 'Saving…' : 'Register member'}
+        </button>
       </form>
     </section>
   );
