@@ -2,14 +2,14 @@
 // import template (Name, Phone, Plan, Fee, Start Date, WhatsApp Consent), so
 // a backup can be re-imported with the "Import from Excel" tab.
 
-import { PLANS, calculateExpiry, normalizePhone, parseAnyDate, parseConsent, parsePlan } from '../members.js';
+import { PLANS, calculateExpiry, normalizePhone, parseAnyDate, parseConsent, parsePackage, parsePlan } from '../members.js';
 
 export const SHEET_NAME = 'Members';
 
 export const HEADERS = [
   'Member ID', 'Name', 'Phone', 'Plan', 'Fee',
-  'Start Date', 'Expiry Date', 'WhatsApp Consent', 'Registered On',
-];
+  'Start Date', 'Expiry Date', 'WhatsApp Consent', 'Registered On', 'Package',
+]; // 'Package' was added last so existing sheets keep their column positions.
 
 /** One member as a sheet row (same column order as HEADERS). */
 export function memberToRow(m) {
@@ -23,6 +23,7 @@ export function memberToRow(m) {
     m.expiryDate,
     m.whatsappConsent ? 'Yes' : 'No',
     m.createdAt ? String(m.createdAt).slice(0, 10) : '',
+    m.gymPackage || '',
   ];
 }
 
@@ -37,7 +38,7 @@ export function membersToRows(members) {
  * phone typed with spaces, ...). Returns null for rows without an id or name.
  */
 export function rowToMember(row) {
-  const [id, name, phone, plan, fee, startDate, expiryDate, consent, createdOn] =
+  const [id, name, phone, plan, fee, startDate, expiryDate, consent, createdOn, gymPackage] =
     Array.from({ length: HEADERS.length }, (_, i) => row?.[i] ?? '');
   const memberId = String(id).trim();
   const memberName = String(name).trim();
@@ -54,6 +55,7 @@ export function rowToMember(row) {
     name: memberName,
     phone: normalizePhone(phone) || String(phone).replace(/\D/g, ''),
     plan: memberPlan,
+    gymPackage: parsePackage(gymPackage) || String(gymPackage).trim(), // '' for members added before packages existed
     fee: Number.isFinite(feeNumber) ? feeNumber : 0,
     startDate: start,
     expiryDate: expiry,

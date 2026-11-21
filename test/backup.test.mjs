@@ -13,9 +13,9 @@ import { BackupError } from '../src/lib/backup/errors.js';
 import { prepareImport, createMember } from '../src/lib/members.js';
 
 const members = [
-  { id: 'GYM-000001', name: 'Ravi Kumar', phone: '919876543210', plan: 'Monthly', fee: 1500,
+  { id: 'GYM-000001', name: 'Ravi Kumar', phone: '919876543210', plan: 'Monthly', gymPackage: 'Basic Gym', fee: 1500,
     startDate: '2026-01-15', expiryDate: '2026-02-15', whatsappConsent: true, createdAt: '2026-01-15T10:20:30.000Z' },
-  { id: 'GYM-000002', name: 'Priya Sharma', phone: '919123456789', plan: 'Quarterly', fee: 4000,
+  { id: 'GYM-000002', name: 'Priya Sharma', phone: '919123456789', plan: 'Quarterly', gymPackage: 'Gym + Cardio', fee: 4000,
     startDate: '2026-01-31', expiryDate: '2026-04-30', whatsappConsent: false, createdAt: '2026-01-31T08:00:00.000Z' },
 ];
 
@@ -38,7 +38,7 @@ test('members become a header row plus one row each', () => {
   const rows = membersToRows(members);
   assert.deepEqual(rows[0], HEADERS);
   assert.equal(rows.length, 3);
-  assert.deepEqual(rows[1], ['GYM-000001', 'Ravi Kumar', '919876543210', 'Monthly', 1500, '2026-01-15', '2026-02-15', 'Yes', '2026-01-15']);
+  assert.deepEqual(rows[1], ['GYM-000001', 'Ravi Kumar', '919876543210', 'Monthly', 1500, '2026-01-15', '2026-02-15', 'Yes', '2026-01-15', 'Basic Gym']);
   assert.equal(rows[2][7], 'No');
   assert.deepEqual(membersToRows([]), [HEADERS]);
 });

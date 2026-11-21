@@ -6,16 +6,28 @@ import Settings from './components/Settings.jsx';
 import BackupChip from './components/BackupChip.jsx';
 import useBackup from './lib/useBackup.js';
 import {
-  loadMembers, addMembers, deleteMember, loadLegacyMembers, clearLegacyMembers,
+  loadMembers, addMembers, updateMember, deleteMember, loadLegacyMembers, clearLegacyMembers,
 } from './lib/storage.js';
 
 const TABS = [
-  { key: 'members', label: 'Members' },
-  { key: 'add', label: 'Add member' },
-  { key: 'import', label: 'Import from Excel' },
+  { key: 'members', label: 'Members', menuLabel: 'Members' },
+  { key: 'add', label: 'Add member', menuLabel: 'Add Member' },
+  { key: 'import', label: 'Import from Excel', menuLabel: 'Import Data' },
 ];
 
+function UserIcon({ size = 22 }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+    </svg>
+  );
+}
+
 export default function GymApp({ user, role, onLogout }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const topbarRef = useRef(null);
   const [members, setMembers] = useState([]);
   const [load, setLoad] = useState({ status: 'loading', error: '' }); // 'loading' | 'ready' | 'error'
   const [actionError, setActionError] = useState('');
@@ -54,6 +66,23 @@ export default function GymApp({ user, role, onLogout }) {
 
   useEffect(refresh, [refresh]);
 
+  // Close the phone menu on an outside tap or Escape.
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const onPointer = (e) => {
+      if (topbarRef.current && !topbarRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') setMenuOpen(false); };
+    document.addEventListener('pointerdown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
+
+  const goTo = (key) => { setTab(key); setMenuOpen(false); };
+
   /** Runs a sheet change; on a sign-out or failure rethrows a readable error. */
   const run = (task) => enqueue(async () => {
     setActionError('');
@@ -76,6 +105,11 @@ export default function GymApp({ user, role, onLogout }) {
     const { members: list, skipped } = await addMembers(batch);
     setMembers(list);
     return { saved: batch.length - skipped.length, skipped };
+  });
+
+  const editMember = (member) => run(async () => {
+    const { members: list } = await updateMember(member);
+    setMembers(list);
   });
 
   const removeMember = (id) => {
@@ -104,15 +138,63 @@ export default function GymApp({ user, role, onLogout }) {
 
   return (
     <div className="app">
-      <header className="topbar">
-        <div className="brand">
+      <header className="topbar" ref={topbarRef}>
+        {/* Phone layout: menu button, app name in the centre, dropdown with everything else. */}
+        <div className="mobile-bar">
+          <button
+            className="menu-btn"
+            aria-label="Menu"
+            aria-expanded={menuOpen}
+            aria-controls="mobile-menu"
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              {menuOpen
+                ? <path d="M6 6l12 12M18 6L6 18" />
+                : <path d="M4 6h16M4 12h16M4 18h16" />}
+            </svg>
+          </button>
+          <span className="mobile-title">Gym Manager</span>
+          <span className="menu-spacer" aria-hidden />
+        </div>
+        {menuOpen && (
+          <div className="mobile-menu" id="mobile-menu">
+            <button
+              className={tab === 'settings' ? 'menu-item profile active' : 'menu-item profile'}
+              onClick={() => goTo('settings')}
+              disabled={!isAdmin}
+            >
+              <span className="avatar"><UserIcon /></span>
+              <span className="profile-name">
+                <b>{user}</b>
+                {isAdmin && <small>Admin · Profile</small>}
+              </span>
+            </button>
+            {TABS.map((t) => (
+              <button
+                key={t.key}
+                className={tab === t.key ? 'menu-item active' : 'menu-item'}
+                onClick={() => goTo(t.key)}
+              >
+                {t.menuLabel}
+              </button>
+            ))}
+            <div className="menu-foot">
+              <BackupChip backup={backup} />
+              <button className="secondary small" onClick={onLogout}>Sign out</button>
+            </div>
+          </div>
+        )}
+
+        <div className="brand desktop-only">
           <span className="logo" aria-hidden>🏋️</span>
           <div>
             <h1>Gym Manager</h1>
             <p>{ready ? `${members.length} member${members.length === 1 ? '' : 's'}` : 'Google Sheet'}</p>
           </div>
         </div>
-        <nav className="tabs">
+        <nav className="tabs desktop-only">
           {TABS.map((t) => (
             <button
               key={t.key}
@@ -123,7 +205,7 @@ export default function GymApp({ user, role, onLogout }) {
             </button>
           ))}
         </nav>
-        <div className="userbox">
+        <div className="userbox desktop-only">
           <BackupChip backup={backup} />
           <button
             className={tab === 'settings' ? 'user-icon active' : 'user-icon'}
@@ -132,11 +214,7 @@ export default function GymApp({ user, role, onLogout }) {
             onClick={() => setTab('settings')}
             disabled={!isAdmin}
           >
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="12" cy="8" r="4" />
-              <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
-            </svg>
+            <UserIcon />
           </button>
           <button className="secondary small" onClick={onLogout}>Sign out</button>
         </div>
@@ -162,7 +240,7 @@ export default function GymApp({ user, role, onLogout }) {
       <main>
         {load.status === 'loading' && <p className="muted">Loading members…</p>}
         {ready && tab === 'members' && (
-          <MemberList members={members} onDelete={removeMember} onAddClick={() => setTab('add')} />
+          <MemberList members={members} onDelete={removeMember} onUpdate={editMember} onAddClick={() => setTab('add')} />
         )}
         {ready && tab === 'add' && <MemberForm members={members} onAdd={addMember} />}
         {ready && tab === 'import' && (

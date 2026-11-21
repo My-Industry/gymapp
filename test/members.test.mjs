@@ -3,8 +3,36 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   normalizePhone, addMonths, calculateExpiry, parseAnyDate, parsePlan,
-  nextMemberId, createMember, prepareImport, memberStatus, formatPhone,
+  nextMemberId, createMember, prepareImport, memberStatus, formatPhone, parsePackage, suggestedFee,
 } from '../src/lib/members.js';
+
+test('packages: prices, names and suggested fee', () => {
+  assert.equal(suggestedFee('Basic Gym', 'Monthly'), 500);
+  assert.equal(suggestedFee('Gym + Cardio', 'Monthly'), 1000);
+  assert.equal(suggestedFee('Gym + Cardio', 'Yearly'), 12000);
+  assert.equal(suggestedFee('Nope', 'Monthly'), null);
+  assert.equal(parsePackage('gym+cardio'), 'Gym + Cardio');
+  assert.equal(parsePackage('Basic'), 'Basic Gym');
+  assert.equal(parsePackage('platinum'), null);
+});
+
+test('a member keeps their package; blank means Basic Gym; unknown is an error', () => {
+  const base = { name: 'Asha', phone: '98765 43210', plan: 'Monthly', fee: 1000, startDate: '2026-03-01' };
+  assert.equal(createMember({ ...base, gymPackage: 'Gym + Cardio' }, []).member.gymPackage, 'Gym + Cardio');
+  assert.equal(createMember(base, []).member.gymPackage, 'Basic Gym');
+  assert.match(createMember({ ...base, gymPackage: 'Platinum' }, []).errors[0], /Package must be/);
+});
+
+test('import reads a Package column, and an old "Package" duration column still works', () => {
+  const r = prepareImport([
+    { Name: 'A', Phone: '9111111111', Package: 'Gym + Cardio', Plan: 'Monthly', Fee: 1000, 'Start Date': '01/02/2026' },
+    { Name: 'B', Phone: '9222222222', Package: 'Yearly', Fee: 6000, 'Start Date': '01/02/2026' }, // old file: Package = duration
+  ], []);
+  assert.equal(r.invalid.length, 0);
+  assert.equal(r.ready[0].gymPackage, 'Gym + Cardio');
+  assert.equal(r.ready[1].plan, 'Yearly');
+  assert.equal(r.ready[1].gymPackage, 'Basic Gym');
+});
 
 test('phone numbers are cleaned and get the 91 prefix', () => {
   assert.equal(normalizePhone('98765 43210'), '919876543210');

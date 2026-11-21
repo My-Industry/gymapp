@@ -58,8 +58,8 @@ export default function BulkImport({ members, onImport, onDone }) {
     <section className="card">
       <h2>Import existing members</h2>
       <p className="muted">
-        The first sheet is read. Columns needed: <b>Name</b>, <b>Phone</b>, <b>Plan</b>, <b>Fee</b>, <b>Start Date</b>,
-        and optionally <b>WhatsApp Consent</b> (Yes/No). Dates can be DD/MM/YYYY or real Excel dates.
+        The first sheet is read. Columns needed: <b>Name</b>, <b>Phone</b>, <b>Plan</b> (Monthly, Quarterly…), <b>Fee</b>, <b>Start Date</b>,
+        and optionally <b>Package</b> (Basic Gym or Gym + Cardio; blank means Basic Gym) and <b>WhatsApp Consent</b> (Yes/No). Dates can be DD/MM/YYYY or real Excel dates.
       </p>
 
       <div className="import-actions">
@@ -113,12 +113,12 @@ export default function BulkImport({ members, onImport, onDone }) {
             <details>
               <summary>Preview of members to import</summary>
               <table className="compact">
-                <thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Plan</th><th>Start</th><th>Expiry</th><th>WA</th></tr></thead>
+                <thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Package</th><th>Plan</th><th>Start</th><th>Expiry</th><th>WA</th></tr></thead>
                 <tbody>
                   {result.ready.map((m) => (
                     <tr key={m.id}>
                       <td className="mono">{m.id}</td><td>{m.name}</td><td className="mono">{formatPhone(m.phone)}</td>
-                      <td>{m.plan}</td><td>{formatDate(m.startDate)}</td><td>{formatDate(m.expiryDate)}</td>
+                      <td>{m.gymPackage}</td><td>{m.plan}</td><td>{formatDate(m.startDate)}</td><td>{formatDate(m.expiryDate)}</td>
                       <td>{m.whatsappConsent ? '✓' : '—'}</td>
                     </tr>
                   ))}

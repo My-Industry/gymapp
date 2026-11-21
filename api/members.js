@@ -1,10 +1,11 @@
 // GET    /api/members          -> { members }
 // POST   /api/members          body { members: [...] }  -> { members, skipped }
+// PUT    /api/members          body { member }          -> { members }   (edit one member)
 // DELETE /api/members          body { id }              -> { members }
 // Every call needs a signed-in session. Data lives in the Google Sheet (see _lib/sheets.js).
 
 import { getSession, readBody, sendJson } from './_lib/auth.js';
-import { SheetsError, cleanIncoming, getStore } from './_lib/sheets.js';
+import { SheetsError, cleanIncoming, cleanUpdate, getStore } from './_lib/sheets.js';
 
 export default async function handler(req, res) {
   if (!getSession(req)) return sendJson(res, 401, { error: 'Please sign in again.' });
@@ -22,13 +23,19 @@ export default async function handler(req, res) {
       return sendJson(res, 200, await store.add(members));
     }
 
+    if (req.method === 'PUT') {
+      const { member, error } = cleanUpdate(readBody(req).member);
+      if (error) return sendJson(res, 400, { error });
+      return sendJson(res, 200, await store.update(member));
+    }
+
     if (req.method === 'DELETE') {
       const id = String(readBody(req).id || '').trim();
       if (!id) return sendJson(res, 400, { error: 'Missing member id.' });
       return sendJson(res, 200, await store.remove(id));
     }
 
-    res.setHeader('Allow', 'GET, POST, DELETE');
+    res.setHeader('Allow', 'GET, POST, PUT, DELETE');
     return sendJson(res, 405, { error: 'Method not allowed' });
   } catch (err) {
     if (err instanceof SheetsError) {

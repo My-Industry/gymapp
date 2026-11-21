@@ -9,6 +9,23 @@ export const PLANS = {
 
 export const PLAN_NAMES = Object.keys(PLANS);
 
+// What the member gets, priced per month in rupees. The Plan above is only how
+// long they pay for. Change the prices here if the gym's rates change.
+export const PACKAGES = {
+  'Basic Gym': 500,
+  'Gym + Cardio': 1000,
+};
+
+export const PACKAGE_NAMES = Object.keys(PACKAGES);
+export const DEFAULT_PACKAGE = 'Basic Gym';
+
+/** Suggested fee: monthly rate × number of months in the plan. */
+export function suggestedFee(gymPackage, plan) {
+  const rate = PACKAGES[gymPackage];
+  const months = PLANS[plan];
+  return rate && months ? rate * months : null;
+}
+
 /* ---------------------------------------------------------------- Phone */
 
 /**
@@ -139,6 +156,16 @@ export function parsePlan(value) {
   return map[s] || null;
 }
 
+export function parsePackage(value) {
+  if (value === null || value === undefined) return null;
+  const s = String(value).toLowerCase().replace(/[^a-z0-9]/g, '');
+  const map = {
+    basic: 'Basic Gym', basicgym: 'Basic Gym', gym: 'Basic Gym', gymonly: 'Basic Gym',
+    gymcardio: 'Gym + Cardio', gymandcardio: 'Gym + Cardio', gymwithcardio: 'Gym + Cardio', cardio: 'Gym + Cardio',
+  };
+  return map[s] || null;
+}
+
 /* ---------------------------------------------------------------- IDs */
 
 export function nextMemberId(members, offset = 0) {
@@ -175,6 +202,12 @@ export function validateMember(input, existing = []) {
   const plan = PLANS[input.plan] ? input.plan : parsePlan(input.plan);
   if (!plan) errors.push('Plan must be Monthly, Quarterly, Half-yearly or Yearly');
 
+  // Older imports and sheet rows have no package: treat blank as the basic one.
+  const gymPackage = String(input.gymPackage ?? '').trim() === ''
+    ? DEFAULT_PACKAGE
+    : (PACKAGES[input.gymPackage] ? input.gymPackage : parsePackage(input.gymPackage));
+  if (!gymPackage) errors.push('Package must be Basic Gym or Gym + Cardio');
+
   const feeRaw = String(input.fee ?? '').replace(/[₹,\s]/g, '').replace(/^rs\.?/i, '');
   const fee = Number(feeRaw);
   if (feeRaw === '' || !isFinite(fee)) errors.push('Fee must be a number');
@@ -191,6 +224,7 @@ export function validateMember(input, existing = []) {
       name,
       phone,
       plan,
+      gymPackage,
       fee: Math.round(fee * 100) / 100,
       startDate,
       expiryDate: calculateExpiry(startDate, plan),
@@ -220,7 +254,8 @@ export function memberStatus(member, today = todayISO()) {
 const HEADER_ALIASES = {
   name: ['name', 'membername', 'fullname', 'member'],
   phone: ['phone', 'phoneno', 'phonenumber', 'mobile', 'mobileno', 'mobilenumber', 'contact', 'contactnumber', 'whatsappnumber', 'number'],
-  plan: ['plan', 'membership', 'membershipplan', 'package', 'duration'],
+  plan: ['plan', 'membership', 'membershipplan', 'duration'],
+  gymPackage: ['package', 'packagetype', 'gymtype', 'type', 'category'],
   fee: ['fee', 'fees', 'amount', 'price', 'paid', 'amountpaid'],
   startDate: ['startdate', 'start', 'joiningdate', 'joindate', 'dateofjoining', 'doj', 'date'],
   whatsappConsent: ['whatsappconsent', 'whatsapp', 'consent', 'optin', 'whatsappoptin'],
@@ -261,6 +296,11 @@ export function prepareImport(rows, existing, now = new Date()) {
     if (Object.values(mapped).every((v) => v === undefined || String(v).trim() === '')) return; // blank row
 
     const input = { ...mapped, whatsappConsent: parseConsent(mapped.whatsappConsent) };
+    // Older files used a "Package" column for the duration (Monthly, Yearly…).
+    if (String(input.plan ?? '').trim() === '' && parsePlan(input.gymPackage) && !parsePackage(input.gymPackage)) {
+      input.plan = input.gymPackage;
+      input.gymPackage = '';
+    }
     const phone = normalizePhone(input.phone);
     const dup = phone && findByPhone(seen, phone);
     if (dup) {
@@ -282,6 +322,6 @@ export function prepareImport(rows, existing, now = new Date()) {
 }
 
 export const TEMPLATE_ROWS = [
-  { Name: 'Ravi Kumar', Phone: '98765 43210', Plan: 'Monthly', Fee: 1500, 'Start Date': '15/01/2026', 'WhatsApp Consent': 'Yes' },
-  { Name: 'Priya Sharma', Phone: '+91 91234 56789', Plan: 'Quarterly', Fee: 4000, 'Start Date': '31/01/2026', 'WhatsApp Consent': 'No' },
+  { Name: 'Ravi Kumar', Phone: '98765 43210', Package: 'Basic Gym', Plan: 'Monthly', Fee: 500, 'Start Date': '15/01/2026', 'WhatsApp Consent': 'Yes' },
+  { Name: 'Priya Sharma', Phone: '+91 91234 56789', Package: 'Gym + Cardio', Plan: 'Quarterly', Fee: 3000, 'Start Date': '31/01/2026', 'WhatsApp Consent': 'No' },
 ];

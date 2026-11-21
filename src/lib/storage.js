@@ -43,6 +43,11 @@ export async function addMembers(list) {
   return call('POST', { members: list });
 }
 
+/** Saves changes to one member (matched by id). Returns { members: <whole list> }. */
+export async function updateMember(member) {
+  return call('PUT', { member });
+}
+
 /** Deletes one member. Returns { members: <remaining list> }. */
 export async function deleteMember(id) {
   return call('DELETE', { id });
