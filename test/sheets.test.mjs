@@ -19,6 +19,7 @@ const member = (n, extra = {}) => ({
   name: `Member ${n}`,
   phone: `9198765${String(10000 + n)}`,
   plan: 'Monthly',
+  gymPackage: 'Basic Gym',
   fee: 1500,
   startDate: '2026-01-15',
   expiryDate: '2026-02-15',
@@ -40,6 +41,11 @@ function fakeGoogle({ rows = [], hasTab = true } = {}) {
     assert.equal(init.headers.Authorization, 'Bearer tok');
     if (u.includes('/values/') && u.includes(':append')) {
       state.rows.push(...JSON.parse(init.body).values);
+      return reply({});
+    }
+    if (u.includes('/values/') && init.method === 'PUT') {
+      const rowNo = Number(/!A(\d+):/.exec(decodeURIComponent(u))[1]); // e.g. Members!A3:J3
+      state.rows[rowNo - 1] = JSON.parse(init.body).values[0];
       return reply({});
     }
     if (u.includes('/values/')) {
@@ -118,6 +124,16 @@ test('add writes the header first when the tab is empty', async () => {
   assert.equal(state.rows[1][0], 'GYM-000001');
 });
 
+test('a sheet from before packages existed gets the Package header and still lists old members', async () => {
+  const oldHeader = HEADERS.slice(0, -1);
+  const oldRow = memberToRow(member(1)).slice(0, -1);
+  const { store, state } = fakeGoogle({ rows: [oldHeader, oldRow] });
+  assert.equal((await store.list())[0].gymPackage, ''); // blank, not guessed
+  await store.add([member(2, { gymPackage: 'Gym + Cardio' })]);
+  assert.deepEqual(state.rows[0], HEADERS);
+  assert.equal(state.rows[2][9], 'Gym + Cardio');
+});
+
 test('add skips a phone that is already registered', async () => {
   const { store, state } = fakeGoogle({ rows: [HEADERS, memberToRow(member(1))] });
   const { members, skipped } = await store.add([member(2, { phone: member(1).phone })]);
@@ -130,6 +146,25 @@ test('add gives a fresh id when another device took the same one', async () => {
   const { store } = fakeGoogle({ rows: [HEADERS, memberToRow(member(1))] });
   const { members } = await store.add([member(1, { phone: '919876500002', name: 'Second' })]);
   assert.deepEqual(members.map((m) => m.id), ['GYM-000001', 'GYM-000002']);
+});
+
+test('update upgrades one member in place and keeps the rest', async () => {
+  const { store, state } = fakeGoogle({ rows: [HEADERS, memberToRow(member(1)), memberToRow(member(2))] });
+  const { members } = await store.update(member(2, {
+    gymPackage: 'Gym + Cardio', plan: 'Yearly', fee: 12000, expiryDate: '2027-01-15', createdAt: 'ignored',
+  }));
+  assert.equal(members.length, 2);
+  assert.equal(members[1].gymPackage, 'Gym + Cardio');
+  assert.equal(members[1].plan, 'Yearly');
+  assert.equal(members[1].createdAt, '2026-01-15'); // registration date is kept
+  assert.deepEqual(members[0], rowToMember(memberToRow(member(1)))); // other rows untouched
+  assert.equal(state.rows.length, 3);
+});
+
+test('update refuses a phone that belongs to someone else, and an unknown member', async () => {
+  const { store } = fakeGoogle({ rows: [HEADERS, memberToRow(member(1)), memberToRow(member(2))] });
+  await assert.rejects(store.update(member(2, { phone: member(1).phone })), { code: 'conflict' });
+  await assert.rejects(store.update(member(9)), { code: 'not-found-member' });
 });
 
 test('remove deletes only that member row', async () => {

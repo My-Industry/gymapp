@@ -16,13 +16,13 @@ import { nextMemberId, normalizePhone, validateMember } from '../../src/lib/memb
 const SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const API = 'https://sheets.googleapis.com/v4/spreadsheets';
-const LAST_COLUMN = String.fromCharCode(64 + HEADERS.length); // "I"
+const LAST_COLUMN = String.fromCharCode(64 + HEADERS.length); // "J"
 const RANGE = `${SHEET_NAME}!A:${LAST_COLUMN}`;
 
 export class SheetsError extends Error {
   constructor(code, message, status = 502) {
     super(message);
-    this.code = code; // 'not-configured' | 'forbidden' | 'not-found' | 'busy' | 'failed'
+    this.code = code; // 'not-configured' | 'forbidden' | 'not-found' | 'not-found-member' | 'conflict' | 'busy' | 'failed'
     this.status = status;
   }
 }
@@ -146,6 +146,17 @@ export function createSheetStore(config, fetchImpl = fetch) {
     return rows.slice(hasHeader ? 1 : 0).map(rowToMember).filter(Boolean);
   }
 
+  /** A sheet made before the Package column existed: add its header so new values are labelled. */
+  async function ensureHeader(state) {
+    if (state.hasHeader && state.rows[0].length < HEADERS.length) {
+      await call(`/values/${encodeURIComponent(`${SHEET_NAME}!A1:${LAST_COLUMN}1`)}?valueInputOption=RAW`, {
+        method: 'PUT',
+        body: JSON.stringify({ values: [HEADERS] }),
+      });
+      state.rows[0] = [...HEADERS];
+    }
+  }
+
   return {
     async list() {
       return parseMembers(await readRows());
@@ -177,6 +188,7 @@ export function createSheetStore(config, fetchImpl = fetch) {
       }
 
       if (written.length) {
+        await ensureHeader(state);
         const values = written.map(memberToRow);
         await call(`/values/${encodeURIComponent(RANGE)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
           method: 'POST',
@@ -184,6 +196,31 @@ export function createSheetStore(config, fetchImpl = fetch) {
         });
       }
       return { members: [...existing, ...written], skipped };
+    },
+
+    /**
+     * Replaces one member's details (already validated), keeping their id and
+     * registration date. Returns { members: <whole list> }.
+     */
+    async update(member) {
+      const state = await readRows();
+      const start = state.hasHeader ? 1 : 0;
+      const at = state.rows.findIndex((row, i) => i >= start && String(row[0] ?? '').trim() === member.id);
+      if (at === -1) throw new SheetsError('not-found-member', 'That member no longer exists. Refresh the page.', 404);
+
+      const others = parseMembers({ rows: state.rows.filter((_, i) => i !== at), hasHeader: state.hasHeader });
+      const clash = others.find((m) => m.phone === member.phone);
+      if (clash) throw new SheetsError('conflict', `Phone already registered to ${clash.name} (${clash.id})`, 409);
+
+      const current = rowToMember(state.rows[at]);
+      const row = memberToRow({ ...member, createdAt: current?.createdAt || member.createdAt });
+      await ensureHeader(state);
+      await call(`/values/${encodeURIComponent(`${SHEET_NAME}!A${at + 1}:${LAST_COLUMN}${at + 1}`)}?valueInputOption=RAW`, {
+        method: 'PUT',
+        body: JSON.stringify({ values: [row] }),
+      });
+      state.rows[at] = row;
+      return { members: parseMembers(state) };
     },
 
     /** Deletes the member's row. Returns { members: <remaining list> }. */
@@ -243,4 +280,12 @@ export function cleanIncoming(list) {
     members.push({ ...member, phone: normalizePhone(member.phone), id: String(raw.id), createdAt });
   }
   return { members };
+}
+
+/** Re-checks one edited member sent by the browser. Returns { member } or { error }. */
+export function cleanUpdate(raw) {
+  const { errors, member } = validateMember(raw || {}, []);
+  if (errors.length) return { error: errors[0] };
+  if (!ID_RULE.test(String(raw.id))) return { error: 'A member has an invalid id.' };
+  return { member: { ...member, phone: normalizePhone(member.phone), id: String(raw.id) } };
 }

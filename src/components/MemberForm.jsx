@@ -1,29 +1,42 @@
 import { useMemo, useState } from 'react';
 import {
-  PLAN_NAMES, createMember, normalizePhone, formatPhone, findByPhone,
-  calculateExpiry, formatDate, isValidISODate, todayISO,
+  PLAN_NAMES, PACKAGES, PACKAGE_NAMES, DEFAULT_PACKAGE, suggestedFee, createMember, normalizePhone,
+  formatPhone, findByPhone, calculateExpiry, formatDate, isValidISODate, todayISO,
 } from '../lib/members.js';
 
 const emptyForm = () => ({
   name: '',
   phone: '',
+  gymPackage: DEFAULT_PACKAGE,
   plan: 'Monthly',
-  fee: '',
+  fee: String(suggestedFee(DEFAULT_PACKAGE, 'Monthly')),
   startDate: todayISO(),
   whatsappConsent: false,
 });
 
+const inr = new Intl.NumberFormat('en-IN');
+
 export default function MemberForm({ members, onAdd }) {
   const [form, setForm] = useState(emptyForm);
+  const [feeEdited, setFeeEdited] = useState(false); // once typed by hand, stop auto-filling
   const [errors, setErrors] = useState([]);
   const [saved, setSaved] = useState(null);
 
   const set = (field) => (e) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    setForm((f) => ({ ...f, [field]: value }));
+    if (field === 'fee') setFeeEdited(true);
+    setForm((f) => {
+      const next = { ...f, [field]: value };
+      if ((field === 'gymPackage' || field === 'plan') && !feeEdited) {
+        next.fee = String(suggestedFee(next.gymPackage, next.plan) ?? '');
+      }
+      return next;
+    });
     setErrors([]);
     setSaved(null);
   };
+
+  const standardFee = suggestedFee(form.gymPackage, form.plan);
 
   const cleanPhone = normalizePhone(form.phone);
   const duplicate = cleanPhone ? findByPhone(members, cleanPhone) : null;
@@ -47,6 +60,7 @@ export default function MemberForm({ members, onAdd }) {
       const stored = await onAdd(result.member);
       setSaved(stored || result.member);
       setForm(emptyForm());
+      setFeeEdited(false);
     } catch (err) {
       setErrors([err.message || "Couldn't save the member. Please try again."]);
     } finally {
@@ -92,16 +106,32 @@ export default function MemberForm({ members, onAdd }) {
 
         <div className="row">
           <label>
-            Plan
+            Package
+            <select value={form.gymPackage} onChange={set('gymPackage')}>
+              {PACKAGE_NAMES.map((p) => (
+                <option key={p} value={p}>{p} — ₹{inr.format(PACKAGES[p])}/month</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Duration
             <select value={form.plan} onChange={set('plan')}>
               {PLAN_NAMES.map((p) => <option key={p}>{p}</option>)}
             </select>
           </label>
-          <label>
-            Fee (₹)
-            <input value={form.fee} onChange={set('fee')} placeholder="1500" inputMode="decimal" />
-          </label>
         </div>
+
+        <label>
+          Fee (₹)
+          <input value={form.fee} onChange={set('fee')} placeholder="500" inputMode="decimal" />
+          {standardFee && (
+            <small className="hint muted">
+              {feeEdited && Number(form.fee) !== standardFee
+                ? `Standard fee is ₹${inr.format(standardFee)}; you changed it.`
+                : `₹${inr.format(PACKAGES[form.gymPackage])} × ${standardFee / PACKAGES[form.gymPackage]} month${standardFee / PACKAGES[form.gymPackage] === 1 ? '' : 's'} (you can edit it)`}
+            </small>
+          )}
+        </label>
 
         <div className="row">
           <label>
