@@ -2,6 +2,8 @@
 // import template (Name, Phone, Plan, Fee, Start Date, WhatsApp Consent), so
 // a backup can be re-imported with the "Import from Excel" tab.
 
+import { PLANS, calculateExpiry, normalizePhone, parseAnyDate, parseConsent, parsePlan } from '../members.js';
+
 export const SHEET_NAME = 'Members';
 
 export const HEADERS = [
@@ -9,20 +11,53 @@ export const HEADERS = [
   'Start Date', 'Expiry Date', 'WhatsApp Consent', 'Registered On',
 ];
 
+/** One member as a sheet row (same column order as HEADERS). */
+export function memberToRow(m) {
+  return [
+    m.id,
+    m.name,
+    m.phone, // string of digits, e.g. "919876543210"
+    m.plan,
+    m.fee,
+    m.startDate,
+    m.expiryDate,
+    m.whatsappConsent ? 'Yes' : 'No',
+    m.createdAt ? String(m.createdAt).slice(0, 10) : '',
+  ];
+}
+
 /** Header row + one row per member, as plain strings/numbers. */
 export function membersToRows(members) {
-  return [
-    HEADERS,
-    ...members.map((m) => [
-      m.id,
-      m.name,
-      m.phone, // string of digits, e.g. "919876543210"
-      m.plan,
-      m.fee,
-      m.startDate,
-      m.expiryDate,
-      m.whatsappConsent ? 'Yes' : 'No',
-      m.createdAt ? String(m.createdAt).slice(0, 10) : '',
-    ]),
-  ];
+  return [HEADERS, ...members.map(memberToRow)];
+}
+
+/**
+ * The reverse of memberToRow: reads one sheet row back into a member.
+ * Forgiving, because the sheet can be edited by hand (dates re-formatted,
+ * phone typed with spaces, ...). Returns null for rows without an id or name.
+ */
+export function rowToMember(row) {
+  const [id, name, phone, plan, fee, startDate, expiryDate, consent, createdOn] =
+    Array.from({ length: HEADERS.length }, (_, i) => row?.[i] ?? '');
+  const memberId = String(id).trim();
+  const memberName = String(name).trim();
+  if (!memberId || !memberName) return null;
+
+  const start = parseAnyDate(startDate) || '';
+  const memberPlan = parsePlan(plan) || String(plan).trim();
+  let expiry = parseAnyDate(expiryDate) || '';
+  if (!expiry && start && PLANS[memberPlan]) expiry = calculateExpiry(start, memberPlan);
+
+  const feeNumber = Number(String(fee).replace(/[₹,\s]/g, ''));
+  return {
+    id: memberId,
+    name: memberName,
+    phone: normalizePhone(phone) || String(phone).replace(/\D/g, ''),
+    plan: memberPlan,
+    fee: Number.isFinite(feeNumber) ? feeNumber : 0,
+    startDate: start,
+    expiryDate: expiry,
+    whatsappConsent: parseConsent(consent),
+    createdAt: String(createdOn).trim(),
+  };
 }

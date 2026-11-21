@@ -42,9 +42,16 @@ export default function BulkImport({ members, onImport, onDone }) {
     }
   };
 
-  const confirmImport = () => {
-    onImport(result.ready);
-    onDone();
+  const confirmImport = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await onImport(result.ready); // saves to the Google Sheet
+      onDone();
+    } catch (err) {
+      setError(err.message || "Couldn't save the members. Please try again.");
+      setBusy(false);
+    }
   };
 
   return (
@@ -120,8 +127,10 @@ export default function BulkImport({ members, onImport, onDone }) {
             </details>
           )}
 
-          <button className="primary" disabled={result.ready.length === 0} onClick={confirmImport}>
-            Import {result.ready.length} member{result.ready.length === 1 ? '' : 's'}
+          <button className="primary" disabled={result.ready.length === 0 || busy} onClick={confirmImport}>
+            {busy
+              ? 'Saving to Google Sheet…'
+              : `Import ${result.ready.length} member${result.ready.length === 1 ? '' : 's'}`}
           </button>
         </>
       )}
