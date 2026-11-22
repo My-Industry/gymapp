@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
 import { HEADERS, memberToRow } from '../src/lib/backup/rows.js';
-import { MONTH_HEADERS, monthsToCreate, parseMonthTitle, monthTitle, valuesToRow } from '../src/lib/monthly.js';
+import { MONTH_HEADERS, monthsToCreate, parseMonthTitle, monthTitle, valuesToRow, memberHistory } from '../src/lib/monthly.js';
 import { createMember, monthsFromFee, planFromFee, planMonths, calculateExpiry, parsePlan } from '../src/lib/members.js';
 import { makeFakeGoogle } from './fakeGoogle.mjs';
 
@@ -236,4 +236,19 @@ test('history lists month tabs newest first', async () => {
   });
   const { months } = await store.history();
   assert.deepEqual(months.map((x) => x.month), ['Dec-2026', 'Nov-2026', 'Oct-2026']);
+});
+
+test('one member\'s history: their rows across months, count, fees, name and first start', () => {
+  const row = (id, name, startDate, fee, tag) => ({ id, name, phone: '919876510001', gymPackage: 'Basic Gym', plan: 'Monthly', startDate, expiryDate: '2027-01-01', fee, tag, upgradedFrom: '', status: 'Active' });
+  const months = [ // newest first, as the API sends them
+    { month: 'Dec-2026', rows: [row('GYM-001', 'Asha K', '2026-12-02', 500, 'Renewed'), row('GYM-002', 'Other', '2026-12-05', 500, 'New')] },
+    { month: 'Nov-2026', rows: [row('GYM-001', 'Asha', '2026-11-02', 1000, 'New')] },
+  ];
+  const h = memberHistory(months, 'GYM-001');
+  assert.equal(h.count, 2);
+  assert.equal(h.fees, 1500);
+  assert.equal(h.name, 'Asha K'); // the newest record's name
+  assert.equal(h.firstStart, '2026-11-02');
+  assert.deepEqual(h.rows.map((r) => r.month), ['Dec-2026', 'Nov-2026']);
+  assert.deepEqual(memberHistory(months, 'GYM-404'), { rows: [], count: 0, fees: 0, name: '', firstStart: '' });
 });

@@ -143,7 +143,7 @@ export function buildMonthRows(month, members, prevRows = null) {
     rows.set(m.id, rowFromMember(m, bounds, tag, startsIn(m, bounds) ? m.fee : 0));
   }
 
-  return [...rows.values()].sort((a, b) => a.id.localeCompare(b.id));
+  return [...rows.values()].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
 }
 
 /** The row for a member added this month, or null when their plan doesn't touch the month. */
@@ -202,4 +202,21 @@ export function rowForLeft(row, member, month) {
   const bounds = monthBounds(month);
   const base = row || rowFromMember(member, bounds, TAGS.LEFT, 0);
   return { ...base, tag: TAGS.LEFT, status: 'Left' };
+}
+
+/**
+ * Everything the month tabs say about one member. `months` is the history list
+ * ({ month, rows }, newest first). Returns the member's rows (newest first), how
+ * many there are, the total fees collected, their latest name and their earliest start date.
+ */
+export function memberHistory(months, id) {
+  const rows = months.flatMap((m) => m.rows.filter((r) => r.id === id).map((r) => ({ ...r, month: m.month })));
+  const starts = rows.map((r) => r.startDate).filter(Boolean).sort();
+  return {
+    rows,
+    count: rows.length,
+    fees: rows.reduce((sum, r) => sum + (Number(r.fee) || 0), 0),
+    name: rows[0]?.name || '',
+    firstStart: starts[0] || '',
+  };
 }

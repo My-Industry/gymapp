@@ -107,7 +107,7 @@ test('add skips a phone that is already registered', async () => {
 test('add gives a fresh id when another device took the same one', async () => {
   const { store } = fakeGoogle({ rows: [HEADERS, memberToRow(member(1))] });
   const { members } = await store.add([member(1, { phone: '919876500002', name: 'Second' })]);
-  assert.deepEqual(members.map((m) => m.id), ['GYM-000001', 'GYM-000002']);
+  assert.deepEqual(members.map((m) => m.id), ['GYM-000001', 'GYM-002']); // old six-digit IDs keep working; new ones use three digits
 });
 
 test('update upgrades one member in place and keeps the rest', async () => {
