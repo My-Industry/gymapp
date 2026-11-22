@@ -12,12 +12,19 @@
 import { createSign } from 'node:crypto';
 import { HEADERS, SHEET_NAME, memberToRow, rowToMember } from '../../src/lib/backup/rows.js';
 import { nextMemberId, normalizePhone, validateMember } from '../../src/lib/members.js';
+import {
+  MONTH_HEADERS, buildMonthRows, compareMonths, monthOf, monthTitle, monthsToCreate, parseMonthTitle,
+  rowAfterUpdate, rowForLeft, rowForNewMember, rowToValues, todayInIndia, valuesToRow,
+} from '../../src/lib/monthly.js';
 
 const SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const API = 'https://sheets.googleapis.com/v4/spreadsheets';
 const LAST_COLUMN = String.fromCharCode(64 + HEADERS.length); // "J"
 const RANGE = `${SHEET_NAME}!A:${LAST_COLUMN}`;
+const MONTH_LAST_COLUMN = String.fromCharCode(64 + MONTH_HEADERS.length); // "K"
+const monthRange = (title, cells = `A:${MONTH_LAST_COLUMN}`) => `'${title}'!${cells}`;
+const MAX_HISTORY_MONTHS = 24;
 
 export class SheetsError extends Error {
   constructor(code, message, status = 502) {
@@ -81,8 +88,9 @@ function friendlyError(status, body, config) {
 }
 
 /** `fetchImpl` is injectable so the logic can be tested without the network. */
-export function createSheetStore(config, fetchImpl = fetch) {
+export function createSheetStore(config, fetchImpl = fetch, { today = () => todayInIndia() } = {}) {
   let token = null; // { value, expiresAt }
+  let checkedMonth = null; // "Nov-2026": this server already made sure that tab exists
 
   async function getToken() {
     if (token && token.expiresAt - 60_000 > Date.now()) return token.value;
@@ -157,7 +165,144 @@ export function createSheetStore(config, fetchImpl = fetch) {
     }
   }
 
+  // ---- monthly records ------------------------------------------------------
+
+  async function listTabs() {
+    const meta = await call('?fields=sheets.properties(sheetId,title)');
+    return (meta.sheets || []).map((s) => s.properties).filter(Boolean);
+  }
+
+  /** Rows of one month tab (header skipped), or null when the tab doesn't exist. */
+  async function readMonth(title) {
+    let body;
+    try {
+      body = await call(`/values/${encodeURIComponent(monthRange(title))}?valueRenderOption=FORMATTED_VALUE`);
+    } catch (err) {
+      if (err.code === 'failed' && /parse range/i.test(err.message)) return null;
+      throw err;
+    }
+    const raw = body.values || [];
+    const start = String(raw[0]?.[0] ?? '').trim() === MONTH_HEADERS[0] ? 1 : 0;
+    return { start, rows: raw.slice(start).map(valuesToRow).filter(Boolean) };
+  }
+
+  const currentMonth = () => monthOf(today());
+
+  /**
+   * Makes sure this month's tab exists (and any months missed since the newest tab,
+   * e.g. when nobody opened the app for a while). With no month tab at all, only the
+   * current month is created, never earlier ones. Safe to call on every request.
+   */
+  async function ensureMonths(members) {
+    const current = currentMonth();
+    const currentTitle = monthTitle(current);
+    if (checkedMonth === currentTitle) return [];
+
+    const tabs = await listTabs();
+    const existing = tabs.map((t) => parseMonthTitle(t.title)).filter(Boolean);
+    const toCreate = monthsToCreate(existing, current);
+    const created = [];
+
+    if (toCreate.length) {
+      let prev = null;
+      if (existing.length) {
+        const newest = existing.reduce((a, b) => (compareMonths(a, b) >= 0 ? a : b));
+        prev = (await readMonth(monthTitle(newest)))?.rows ?? null;
+      }
+      for (const month of toCreate) {
+        const title = monthTitle(month);
+        try {
+          await call(':batchUpdate', {
+            method: 'POST',
+            body: JSON.stringify({ requests: [{ addSheet: { properties: { title } } }] }),
+          });
+        } catch (err) {
+          // Another request created it a moment ago: use theirs.
+          if (/already exists/i.test(err.message)) { prev = (await readMonth(title))?.rows ?? prev; continue; }
+          throw err;
+        }
+        const rows = buildMonthRows(month, members, prev);
+        await call(`/values/${encodeURIComponent(monthRange(title))}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
+          method: 'POST',
+          body: JSON.stringify({ values: [MONTH_HEADERS, ...rows.map(rowToValues)] }),
+        });
+        prev = rows;
+        created.push(title);
+      }
+    }
+    checkedMonth = currentTitle;
+    return created;
+  }
+
+  /**
+   * Changes rows of the current month's tab. Each change is { id, apply(existingRow|null) -> row|null }.
+   * Existing rows are rewritten in place, new ones appended.
+   */
+  async function writeMonth(members, changes) {
+    await ensureMonths(members);
+    const title = monthTitle(currentMonth());
+    const tab = await readMonth(title);
+    if (!tab) throw new SheetsError('failed', `The ${title} tab is missing.`);
+
+    const updates = [];
+    const appends = [];
+    for (const { id, apply } of changes) {
+      const at = tab.rows.findIndex((r) => r.id === id);
+      const row = apply(at === -1 ? null : tab.rows[at]);
+      if (!row) continue;
+      if (at === -1) { appends.push(rowToValues(row)); tab.rows.push(row); continue; }
+      const sheetRow = tab.start + at + 1;
+      updates.push({ range: monthRange(title, `A${sheetRow}:${MONTH_LAST_COLUMN}${sheetRow}`), values: [rowToValues(row)] });
+      tab.rows[at] = row;
+    }
+    if (updates.length) {
+      await call('/values:batchUpdate', {
+        method: 'POST',
+        body: JSON.stringify({ valueInputOption: 'RAW', data: updates }),
+      });
+    }
+    if (appends.length) {
+      await call(`/values/${encodeURIComponent(monthRange(title))}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
+        method: 'POST',
+        body: JSON.stringify({ values: appends }),
+      });
+    }
+  }
+
+  /** The member list was saved; if the monthly record fails, say so instead of failing the whole request. */
+  async function recordMonthly(task) {
+    try {
+      await task();
+      return undefined;
+    } catch (err) {
+      console.error(`Monthly record failed: ${err.message}`);
+      return `Saved, but the monthly record could not be updated: ${err.message}`;
+    }
+  }
+
   return {
+    ensureMonths,
+
+    /** All month tabs (newest first, up to 2 years) with their rows. */
+    async history() {
+      const tabs = (await listTabs())
+        .map((t) => ({ title: t.title, month: parseMonthTitle(t.title) }))
+        .filter((t) => t.month)
+        .sort((a, b) => compareMonths(b.month, a.month))
+        .slice(0, MAX_HISTORY_MONTHS);
+      if (!tabs.length) return { months: [] };
+
+      const query = tabs.map((t) => `ranges=${encodeURIComponent(monthRange(t.title))}`).join('&');
+      const body = await call(`/values:batchGet?${query}&valueRenderOption=FORMATTED_VALUE`);
+      return {
+        months: tabs.map((t, i) => {
+          const raw = body.valueRanges?.[i]?.values || [];
+          const start = String(raw[0]?.[0] ?? '').trim() === MONTH_HEADERS[0] ? 1 : 0;
+          return { month: t.title, rows: raw.slice(start).map(valuesToRow).filter(Boolean) };
+        }),
+      };
+    },
+
     async list() {
       return parseMembers(await readRows());
     },
@@ -195,7 +340,14 @@ export function createSheetStore(config, fetchImpl = fetch) {
           body: JSON.stringify({ values: state.rows.length ? values : [HEADERS, ...values] }),
         });
       }
-      return { members: [...existing, ...written], skipped };
+      const all = [...existing, ...written];
+      const warning = written.length
+        ? await recordMonthly(() => writeMonth(all, written.map((m) => ({
+          id: m.id,
+          apply: () => rowForNewMember(m, currentMonth()),
+        }))))
+        : undefined;
+      return { members: all, skipped, ...(warning && { warning }) };
     },
 
     /**
@@ -219,8 +371,15 @@ export function createSheetStore(config, fetchImpl = fetch) {
         method: 'PUT',
         body: JSON.stringify({ values: [row] }),
       });
+      const before = rowToMember(state.rows[at]);
       state.rows[at] = row;
-      return { members: parseMembers(state) };
+      const list = parseMembers(state);
+      const after = { ...member, createdAt: current?.createdAt || member.createdAt };
+      const warning = await recordMonthly(() => writeMonth(list, [{
+        id: member.id,
+        apply: (existingRow) => rowAfterUpdate(existingRow, before, after, currentMonth()),
+      }]));
+      return { members: list, ...(warning && { warning }) };
     },
 
     /** Deletes the member's row. Returns { members: <remaining list> }. */
@@ -228,7 +387,9 @@ export function createSheetStore(config, fetchImpl = fetch) {
       const state = await readRows();
       const start = state.hasHeader ? 1 : 0;
       const at = state.rows.findIndex((row, i) => i >= start && String(row[0] ?? '').trim() === id);
+      let warning;
       if (at !== -1) {
+        const gone = rowToMember(state.rows[at]);
         await call(':batchUpdate', {
           method: 'POST',
           body: JSON.stringify({
@@ -240,8 +401,15 @@ export function createSheetStore(config, fetchImpl = fetch) {
           }),
         });
         state.rows.splice(at, 1);
+        // The monthly records keep them, tagged "Left", so past months stay as they were.
+        if (gone) {
+          warning = await recordMonthly(() => writeMonth(parseMembers(state), [{
+            id,
+            apply: (existingRow) => rowForLeft(existingRow, gone, currentMonth()),
+          }]));
+        }
       }
-      return { members: parseMembers(state) };
+      return { members: parseMembers(state), ...(warning && { warning }) };
     },
   };
 }

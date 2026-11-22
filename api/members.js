@@ -14,7 +14,17 @@ export default async function handler(req, res) {
     const store = getStore();
 
     if (req.method === 'GET') {
-      return sendJson(res, 200, { members: await store.list() });
+      const members = await store.list();
+      // First open of a new month (or after a long break): create the month tab(s). A failure here
+      // must not stop the member list from loading.
+      let warning;
+      try {
+        await store.ensureMonths(members);
+      } catch (err) {
+        console.error(`Monthly tab check failed: ${err.message}`);
+        warning = `Couldn't create this month's record: ${err.message}`;
+      }
+      return sendJson(res, 200, { members, ...(warning && { warning }) });
     }
 
     if (req.method === 'POST') {

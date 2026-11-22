@@ -4,6 +4,7 @@ import MemberList from './components/MemberList.jsx';
 import BulkImport from './components/BulkImport.jsx';
 import Settings from './components/Settings.jsx';
 import BackupChip from './components/BackupChip.jsx';
+import MonthlyRecords from './components/MonthlyRecords.jsx';
 import useBackup from './lib/useBackup.js';
 import {
   loadMembers, addMembers, updateMember, deleteMember, loadLegacyMembers, clearLegacyMembers,
@@ -13,6 +14,7 @@ const TABS = [
   { key: 'members', label: 'Members', menuLabel: 'Members' },
   { key: 'add', label: 'Add member', menuLabel: 'Add Member' },
   { key: 'import', label: 'Import from Excel', menuLabel: 'Import Data' },
+  { key: 'history', label: 'Monthly records', menuLabel: 'Monthly Records' },
 ];
 
 function UserIcon({ size = 22 }) {
@@ -27,6 +29,7 @@ function UserIcon({ size = 22 }) {
 
 export default function GymApp({ user, role, onLogout }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [historySearch, setHistorySearch] = useState('');
   const topbarRef = useRef(null);
   const [members, setMembers] = useState([]);
   const [load, setLoad] = useState({ status: 'loading', error: '' }); // 'loading' | 'ready' | 'error'
@@ -52,9 +55,10 @@ export default function GymApp({ user, role, onLogout }) {
   const refresh = useCallback(() => {
     setLoad({ status: 'loading', error: '' });
     loadMembers()
-      .then((list) => {
+      .then(({ members: list, warning }) => {
         setMembers(list);
         setLoad({ status: 'ready', error: '' });
+        if (warning) setActionError(warning);
         const phones = new Set(list.map((m) => m.phone));
         setLegacy(loadLegacyMembers().filter((m) => m?.phone && !phones.has(m.phone)));
       })
@@ -81,7 +85,13 @@ export default function GymApp({ user, role, onLogout }) {
     };
   }, [menuOpen]);
 
-  const goTo = (key) => { setTab(key); setMenuOpen(false); };
+  // Opening "Monthly records" from the menu starts fresh; from a member's card it is pre-searched for them.
+  const goTo = (key) => {
+    if (key === 'history') setHistorySearch('');
+    setTab(key);
+    setMenuOpen(false);
+  };
+  const showHistoryFor = (id) => { setHistorySearch(id); setTab('history'); };
 
   /** Runs a sheet change; on a sign-out or failure rethrows a readable error. */
   const run = (task) => enqueue(async () => {
@@ -95,25 +105,32 @@ export default function GymApp({ user, role, onLogout }) {
   });
 
   const addMember = (member) => run(async () => {
-    const { members: list, skipped } = await addMembers([member]);
+    const { members: list, skipped, warning } = await addMembers([member]);
     setMembers(list);
+    if (warning) setActionError(warning);
     if (skipped.length) throw new Error(`${skipped[0].name}: ${skipped[0].reason}.`);
     return list.find((m) => m.phone === member.phone) || member;
   });
 
   const addMany = (batch) => run(async () => {
-    const { members: list, skipped } = await addMembers(batch);
+    const { members: list, skipped, warning } = await addMembers(batch);
     setMembers(list);
+    if (warning) setActionError(warning);
     return { saved: batch.length - skipped.length, skipped };
   });
 
   const editMember = (member) => run(async () => {
-    const { members: list } = await updateMember(member);
+    const { members: list, warning } = await updateMember(member);
     setMembers(list);
+    if (warning) setActionError(warning);
   });
 
   const removeMember = (id) => {
-    run(async () => setMembers((await deleteMember(id)).members))
+    run(async () => {
+      const { members: list, warning } = await deleteMember(id);
+      setMembers(list);
+      if (warning) setActionError(warning);
+    })
       .catch((err) => setActionError(`Couldn't delete: ${err.message}`));
   };
 
@@ -199,7 +216,7 @@ export default function GymApp({ user, role, onLogout }) {
             <button
               key={t.key}
               className={tab === t.key ? 'tab active' : 'tab'}
-              onClick={() => setTab(t.key)}
+              onClick={() => goTo(t.key)}
             >
               {t.label}
             </button>
@@ -240,11 +257,20 @@ export default function GymApp({ user, role, onLogout }) {
       <main>
         {load.status === 'loading' && <p className="muted">Loading members…</p>}
         {ready && tab === 'members' && (
-          <MemberList members={members} onDelete={removeMember} onUpdate={editMember} onAddClick={() => setTab('add')} />
+          <MemberList
+            members={members}
+            onDelete={removeMember}
+            onUpdate={editMember}
+            onShowHistory={showHistoryFor}
+            onAddClick={() => setTab('add')}
+          />
         )}
         {ready && tab === 'add' && <MemberForm members={members} onAdd={addMember} />}
         {ready && tab === 'import' && (
           <BulkImport members={members} onImport={addMany} onDone={() => setTab('members')} />
+        )}
+        {tab === 'history' && (
+          <MonthlyRecords key={historySearch} initialSearch={historySearch} onUnauthorized={onLogout} />
         )}
         {tab === 'settings' && isAdmin && <Settings backup={backup} memberCount={members.length} />}
       </main>

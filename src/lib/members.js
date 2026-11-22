@@ -9,6 +9,19 @@ export const PLANS = {
 
 export const PLAN_NAMES = Object.keys(PLANS);
 
+/** Months covered by a plan: the four standard plans, or a custom "2 Months", "5 Months"… */
+export function planMonths(plan) {
+  if (PLANS[plan]) return PLANS[plan];
+  const m = /^(\d{1,2})\s*months?$/i.exec(String(plan ?? '').trim());
+  const n = m ? Number(m[1]) : 0;
+  return n >= 1 && n <= 60 ? n : 0;
+}
+
+/** The plan name for a number of months: "Monthly", "Quarterly"… or "2 Months". */
+export function planForMonths(n) {
+  return PLAN_NAMES.find((name) => PLANS[name] === n) || `${n} Months`;
+}
+
 // What the member gets, priced per month in rupees. The Plan above is only how
 // long they pay for. Change the prices here if the gym's rates change.
 export const PACKAGES = {
@@ -22,8 +35,25 @@ export const DEFAULT_PACKAGE = 'Basic Gym';
 /** Suggested fee: monthly rate × number of months in the plan. */
 export function suggestedFee(gymPackage, plan) {
   const rate = PACKAGES[gymPackage];
-  const months = PLANS[plan];
+  const months = planMonths(plan);
   return rate && months ? rate * months : null;
+}
+
+/**
+ * How many months a payment covers at the package's monthly rate, e.g. ₹1,000 on
+ * Basic Gym (₹500/month) = 2. Returns null unless the amount is a whole number of months.
+ */
+export function planFromFee(gymPackage, fee, fallbackPlan) {
+  const months = monthsFromFee(gymPackage, fee);
+  return months ? planForMonths(months) : fallbackPlan;
+}
+
+export function monthsFromFee(gymPackage, fee) {
+  const rate = PACKAGES[gymPackage];
+  const amount = Number(String(fee ?? '').replace(/[₹,\s]/g, ''));
+  if (!rate || !isFinite(amount) || amount <= 0) return null;
+  const months = amount / rate;
+  return Number.isInteger(months) && months >= 1 && months <= 36 ? months : null;
 }
 
 /* ---------------------------------------------------------------- Phone */
@@ -79,7 +109,7 @@ export function addMonths(iso, months) {
 }
 
 export function calculateExpiry(startDate, plan) {
-  const months = PLANS[plan];
+  const months = planMonths(plan);
   if (!months) throw new Error(`Unknown plan: ${plan}`);
   return addMonths(startDate, months);
 }
@@ -153,7 +183,9 @@ export function parsePlan(value) {
     halfyearly: 'Half-yearly', halfyear: 'Half-yearly', '6': 'Half-yearly', '6months': 'Half-yearly', '6m': 'Half-yearly',
     yearly: 'Yearly', year: 'Yearly', annual: 'Yearly', annually: 'Yearly', '12': 'Yearly', '12months': 'Yearly', '12m': 'Yearly', '1year': 'Yearly',
   };
-  return map[s] || null;
+  if (map[s]) return map[s];
+  const custom = /^(\d{1,2})(months?|m)$/.exec(s); // "2 months", "5m"
+  return custom && +custom[1] >= 1 && +custom[1] <= 60 ? planForMonths(+custom[1]) : null;
 }
 
 export function parsePackage(value) {
@@ -199,8 +231,8 @@ export function validateMember(input, existing = []) {
     if (dup) errors.push(`Phone already registered to ${dup.name} (${dup.id})`);
   }
 
-  const plan = PLANS[input.plan] ? input.plan : parsePlan(input.plan);
-  if (!plan) errors.push('Plan must be Monthly, Quarterly, Half-yearly or Yearly');
+  const plan = planMonths(input.plan) ? planForMonths(planMonths(input.plan)) : parsePlan(input.plan);
+  if (!plan) errors.push('Plan must be Monthly, Quarterly, Half-yearly, Yearly or a number of months (e.g. 2 Months)');
 
   // Older imports and sheet rows have no package: treat blank as the basic one.
   const gymPackage = String(input.gymPackage ?? '').trim() === ''

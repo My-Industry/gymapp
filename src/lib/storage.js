@@ -10,10 +10,10 @@ export class StorageError extends Error {
   }
 }
 
-async function call(method, body) {
+async function call(method, body, url = '/api/members') {
   let res;
   try {
-    res = await fetch('/api/members', {
+    res = await fetch(url, {
       method,
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
@@ -33,9 +33,14 @@ async function call(method, body) {
   return data;
 }
 
-/** All members, from the sheet. */
+/** All members, from the sheet. Returns { members, warning? }. */
 export async function loadMembers() {
-  return (await call('GET')).members;
+  return call('GET');
+}
+
+/** The monthly records, newest month first: { months: [{ month: "Nov-2026", rows: [...] }] }. */
+export async function loadHistory() {
+  return call('GET', undefined, '/api/history');
 }
 
 /** Saves new members. Returns { members: <whole list>, skipped: [...] }. */

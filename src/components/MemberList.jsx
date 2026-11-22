@@ -4,7 +4,7 @@ import MemberEditForm from './MemberEditForm.jsx';
 
 const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
 
-export default function MemberList({ members, onDelete, onUpdate, onAddClick }) {
+export default function MemberList({ members, onDelete, onUpdate, onShowHistory, onAddClick }) {
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState(null);
   const [editing, setEditing] = useState(false);
@@ -89,6 +89,7 @@ export default function MemberList({ members, onDelete, onUpdate, onAddClick }) 
           <button className="primary" onClick={() => { setEditing(true); setJustSaved(false); }}>
             Upgrade plan / Edit details
           </button>
+          <button className="secondary" onClick={() => onShowHistory(m.id)}>History</button>
           <button className="secondary danger-btn" onClick={confirmDelete}>Delete member</button>
         </div>
           </>
