@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   normalizePhone, addMonths, calculateExpiry, parseAnyDate, parsePlan,
   nextMemberId, createMember, prepareImport, memberStatus, formatPhone, parsePackage, suggestedFee,
+  compareIds, isListedMember, whatsappLink, matchesFilters,
 } from '../src/lib/members.js';
 
 test('packages: prices, names and suggested fee', () => {
@@ -75,10 +76,10 @@ test('plans', () => {
 });
 
 test('member IDs and duplicate phones', () => {
-  assert.equal(nextMemberId([]), 'GYM-000001');
+  assert.equal(nextMemberId([]), 'GYM-001');
   const a = createMember({ name: ' Ravi  Kumar ', phone: '98765 43210', plan: 'Monthly', fee: '1,500', startDate: '2026-01-31', whatsappConsent: true }, []);
   assert.deepEqual(a.errors, []);
-  assert.equal(a.member.id, 'GYM-000001');
+  assert.equal(a.member.id, 'GYM-001');
   assert.equal(a.member.name, 'Ravi Kumar');
   assert.equal(a.member.fee, 1500);
   assert.equal(a.member.expiryDate, '2026-02-28');
@@ -87,7 +88,49 @@ test('member IDs and duplicate phones', () => {
   assert.match(dup.errors[0], /already registered/);
 
   const b = createMember({ name: 'Priya', phone: '9123456789', plan: 'Quarterly', fee: 4000, startDate: '2026-02-01' }, [a.member]);
-  assert.equal(b.member.id, 'GYM-000002');
+  assert.equal(b.member.id, 'GYM-002');
+});
+
+test('IDs have three digits, grow past 999, and continue from older six-digit IDs', () => {
+  assert.equal(nextMemberId([{ id: 'GYM-009' }]), 'GYM-010');
+  assert.equal(nextMemberId([{ id: 'GYM-149' }]), 'GYM-150');
+  assert.equal(nextMemberId([{ id: 'GYM-999' }]), 'GYM-1000');
+  assert.equal(nextMemberId([{ id: 'GYM-000007' }, { id: 'GYM-003' }]), 'GYM-008');
+  assert.equal(nextMemberId([{ id: 'GYM-005' }], 2), 'GYM-008'); // bulk import offsets
+  assert.deepEqual(['GYM-1000', 'GYM-010', 'GYM-000009', 'GYM-999'].sort(compareIds),
+    ['GYM-000009', 'GYM-010', 'GYM-999', 'GYM-1000']);
+});
+
+test('Members page hides plans that expired in an earlier month', () => {
+  const today = '2026-12-05';
+  assert.equal(isListedMember({ expiryDate: '2026-11-20' }, today), false); // expired in November
+  assert.equal(isListedMember({ expiryDate: '2026-11-30' }, today), false);
+  assert.equal(isListedMember({ expiryDate: '2026-12-01' }, today), true); // expired earlier this month: still listed
+  assert.equal(isListedMember({ expiryDate: '2027-02-01' }, today), true);
+  assert.equal(memberStatus({ expiryDate: '2026-12-01' }, today).key, 'expired');
+});
+
+test('Members page filters: status, package and duration', () => {
+  const all = { status: 'all', gymPackage: 'all', plan: 'all' };
+  const m = { gymPackage: 'Gym + Cardio', plan: 'Monthly' };
+  assert.equal(matchesFilters(m, 'expired', all), true);
+  assert.equal(matchesFilters(m, 'expired', { ...all, status: 'active' }), false);
+  assert.equal(matchesFilters(m, 'expiring', { ...all, status: 'active' }), true); // about to expire still counts as active
+  assert.equal(matchesFilters(m, 'active', { ...all, status: 'expired' }), false);
+  assert.equal(matchesFilters(m, 'expired', { ...all, status: 'expired' }), true);
+  assert.equal(matchesFilters(m, 'expiring', { ...all, status: 'expiring' }), true);
+  assert.equal(matchesFilters(m, 'active', { ...all, gymPackage: 'Basic Gym' }), false);
+  assert.equal(matchesFilters({ plan: 'Yearly' }, 'active', { ...all, gymPackage: 'Basic Gym' }), true); // blank package = Basic Gym
+  assert.equal(matchesFilters(m, 'active', { ...all, plan: 'Quarterly' }), false);
+  assert.equal(matchesFilters({ plan: '2 Months' }, 'active', { ...all, plan: 'other' }), true);
+  assert.equal(matchesFilters(m, 'active', { ...all, plan: 'other' }), false);
+});
+
+test('WhatsApp link opens a wa.me chat with the +91 number', () => {
+  assert.equal(whatsappLink('919876543210'), 'https://wa.me/919876543210');
+  assert.equal(whatsappLink('+91 98765 43210'), 'https://wa.me/919876543210');
+  assert.equal(whatsappLink('12345'), null);
+  assert.equal(whatsappLink(''), null);
 });
 
 test('bulk import sorts rows into ready / duplicate / invalid', () => {
@@ -102,7 +145,7 @@ test('bulk import sorts rows into ready / duplicate / invalid', () => {
   ];
   const r = prepareImport(rows, existing);
   assert.equal(r.ready.length, 2);
-  assert.deepEqual(r.ready.map((m) => m.id), ['GYM-000002', 'GYM-000003']);
+  assert.deepEqual(r.ready.map((m) => m.id), ['GYM-002', 'GYM-003']);
   assert.equal(r.ready[0].expiryDate, '2026-02-28');
   assert.equal(r.ready[0].whatsappConsent, true);
   assert.equal(r.ready[1].plan, 'Half-yearly');

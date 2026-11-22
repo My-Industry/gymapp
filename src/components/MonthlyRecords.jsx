@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { loadHistory } from '../lib/storage.js';
-import { formatDate, formatPhone } from '../lib/members.js';
+import HistoryTable, { inr } from './HistoryTable.jsx';
 
-const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
 const TAG_ORDER = ['New', 'Renewed', 'Upgraded', 'Existing', 'Left'];
 
 // One tab of the Google Sheet per month. Pick a month, or "All months" to follow a member through time.
@@ -94,41 +93,7 @@ export default function MonthlyRecords({ initialSearch = '', onUnauthorized }) {
         <div className="stat"><b>{inr.format(summary.fees)}</b> fees collected</div>
       </div>
 
-      <div className="table-wrap">
-        <table className="history-table">
-          <thead>
-            <tr>
-              {showAll && <th>Month</th>}
-              <th>ID</th><th>Name</th><th>Package</th><th>Duration</th>
-              <th>Start</th><th>Expiry</th><th className="num">Fee paid</th><th>Tag</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={`${r.month}-${r.id}`}>
-                {showAll && <td>{r.month}</td>}
-                <td className="mono">{r.id}</td>
-                <td>{r.name}<div className="muted small-text mono">{formatPhone(r.phone)}</div></td>
-                <td>
-                  {r.gymPackage || '—'}
-                  {r.upgradedFrom && <div className="muted small-text">from {r.upgradedFrom}</div>}
-                </td>
-                <td>{r.plan}</td>
-                <td>{formatDate(r.startDate)}</td>
-                <td>
-                  {formatDate(r.expiryDate)}
-                  {r.status === 'Expired' && <div className="muted small-text">Expired</div>}
-                </td>
-                <td className="num">{r.fee ? inr.format(r.fee) : '—'}</td>
-                <td><span className={`badge tag-${String(r.tag).toLowerCase()}`}>{r.tag}</span></td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr><td colSpan={showAll ? 9 : 8} className="muted center">No records match.</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <HistoryTable rows={rows} showMonth={showAll} />
     </section>
   );
 }

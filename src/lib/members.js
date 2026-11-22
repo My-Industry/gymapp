@@ -205,7 +205,50 @@ export function nextMemberId(members, offset = 0) {
     const n = parseInt(String(mem.id).replace(/^GYM-/, ''), 10);
     return isNaN(n) ? acc : Math.max(acc, n);
   }, 0);
-  return `GYM-${pad(max + 1 + offset, 6)}`;
+  return `GYM-${pad(max + 1 + offset, 3)}`; // GYM-001 … GYM-999, then GYM-1000 and on
+}
+
+/** Sorts IDs by their number, so GYM-000009 / GYM-010 / GYM-1000 come out in order. */
+export const compareIds = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true });
+
+/* ---------------------------------------------------------------- Members page rules */
+
+/**
+ * The Members page lists current members only: someone whose plan ran out in an
+ * earlier month is no longer shown (their history stays in the monthly records).
+ * Plans that expired earlier this month are still listed, marked as expired.
+ */
+export function isListedMember(member, today = todayISO()) {
+  return String(member.expiryDate).slice(0, 7) >= today.slice(0, 7);
+}
+
+export const STATUS_FILTERS = [
+  { key: 'all', label: 'All members' },
+  { key: 'active', label: 'Active (plan running)' },
+  { key: 'expiring', label: 'Expiring within 7 days' },
+  { key: 'expired', label: 'Expired this month' },
+];
+
+/**
+ * Members-page filters. `status` is memberStatus(...).key; `filters` is
+ * { status: 'all'|'active'|'expiring'|'expired', gymPackage: 'all'|name, plan: 'all'|name|'other' }.
+ * "Active" means the plan has not run out (it includes plans about to expire).
+ */
+export function matchesFilters(member, status, filters) {
+  const s = filters.status || 'all';
+  if (s === 'active' && status === 'expired') return false;
+  if ((s === 'expiring' || s === 'expired') && status !== s) return false;
+  const pkg = filters.gymPackage || 'all';
+  if (pkg !== 'all' && (member.gymPackage || DEFAULT_PACKAGE) !== pkg) return false;
+  const plan = filters.plan || 'all';
+  if (plan === 'other') return !PLAN_NAMES.includes(member.plan);
+  return plan === 'all' || member.plan === plan;
+}
+
+/** wa.me chat link for a stored phone number ("919876543210"), or null. */
+export function whatsappLink(phone) {
+  const digits = String(phone ?? '').replace(/\D/g, '');
+  return digits.length === 12 && digits.startsWith('91') ? `https://wa.me/${digits}` : null;
 }
 
 /* ---------------------------------------------------------------- Members */

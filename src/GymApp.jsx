@@ -5,6 +5,7 @@ import BulkImport from './components/BulkImport.jsx';
 import Settings from './components/Settings.jsx';
 import BackupChip from './components/BackupChip.jsx';
 import MonthlyRecords from './components/MonthlyRecords.jsx';
+import MemberHistory from './components/MemberHistory.jsx';
 import useBackup from './lib/useBackup.js';
 import {
   loadMembers, addMembers, updateMember, deleteMember, loadLegacyMembers, clearLegacyMembers,
@@ -270,7 +271,18 @@ export default function GymApp({ user, role, onLogout }) {
           <BulkImport members={members} onImport={addMany} onDone={() => setTab('members')} />
         )}
         {tab === 'history' && (
-          <MonthlyRecords key={historySearch} initialSearch={historySearch} onUnauthorized={onLogout} />
+          historySearch ? (
+            <MemberHistory
+              key={historySearch}
+              memberId={historySearch}
+              member={members.find((m) => m.id === historySearch)}
+              onBack={() => goTo('members')}
+              onAllRecords={() => goTo('history')}
+              onUnauthorized={onLogout}
+            />
+          ) : (
+            <MonthlyRecords onUnauthorized={onLogout} />
+          )
         )}
         {tab === 'settings' && isAdmin && <Settings backup={backup} memberCount={members.length} />}
       </main>

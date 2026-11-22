@@ -4,7 +4,7 @@ React (Vite) app for registering gym members. Runs entirely in the browser; no s
 
 ## Features
 - Registration form: name, phone, plan (Monthly / Quarterly / Half-yearly / Yearly), fee, start date
-- Auto-generated member IDs: `GYM-000001`, `GYM-000002`, …
+- Auto-generated member IDs: `GYM-001`, `GYM-002`, … `GYM-999`, then `GYM-1000` and on
 - Phone numbers cleaned automatically (`098765 43210` → `+91 98765 43210`)
 - Expiry calculated automatically with correct month-ends (31 Jan + 1 month = 28 Feb)
 - Duplicate phone numbers blocked (in the form and during import)
