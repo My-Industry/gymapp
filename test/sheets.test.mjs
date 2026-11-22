@@ -5,6 +5,7 @@ import {
   parseSheetId, normalizePrivateKey, readSheetConfig, createSheetStore, cleanIncoming, SheetsError,
 } from '../api/_lib/sheets.js';
 import { HEADERS, memberToRow, rowToMember } from '../src/lib/backup/rows.js';
+import { makeFakeGoogle } from './fakeGoogle.mjs';
 
 const { privateKey } = generateKeyPairSync('rsa', {
   modulusLength: 2048,
@@ -28,46 +29,7 @@ const member = (n, extra = {}) => ({
   ...extra,
 });
 
-/** A tiny in-memory stand-in for Google (token endpoint + Sheets API). */
-function fakeGoogle({ rows = [], hasTab = true } = {}) {
-  const state = { rows: rows.map((r) => [...r]), hasTab, calls: [] };
-  const fetchImpl = async (url, init = {}) => {
-    const u = String(url);
-    const reply = (body, status = 200) => ({ ok: status < 400, status, json: async () => body });
-    state.calls.push(`${init.method || 'GET'} ${u.replace('https://sheets.googleapis.com/v4/spreadsheets/', '')}`);
-    if (u.startsWith('https://oauth2.googleapis.com/token')) {
-      return reply({ access_token: 'tok', expires_in: 3600 });
-    }
-    assert.equal(init.headers.Authorization, 'Bearer tok');
-    if (u.includes('/values/') && u.includes(':append')) {
-      state.rows.push(...JSON.parse(init.body).values);
-      return reply({});
-    }
-    if (u.includes('/values/') && init.method === 'PUT') {
-      const rowNo = Number(/!A(\d+):/.exec(decodeURIComponent(u))[1]); // e.g. Members!A3:J3
-      state.rows[rowNo - 1] = JSON.parse(init.body).values[0];
-      return reply({});
-    }
-    if (u.includes('/values/')) {
-      if (!state.hasTab) return reply({ error: { message: 'Unable to parse range: Members!A:I' } }, 400);
-      return reply({ values: structuredClone(state.rows) }); // the real API sends a fresh copy
-    }
-    if (u.includes(':batchUpdate')) {
-      const req = JSON.parse(init.body).requests[0];
-      if (req.addSheet) { state.hasTab = true; return reply({ replies: [{ addSheet: { properties: { sheetId: 7 } } }] }); }
-      if (req.deleteDimension) {
-        const { startIndex, endIndex } = req.deleteDimension.range;
-        state.rows.splice(startIndex, endIndex - startIndex);
-        return reply({});
-      }
-    }
-    if (u.includes('?fields=')) {
-      return reply({ sheets: state.hasTab ? [{ properties: { sheetId: 7, title: 'Members' } }] : [] });
-    }
-    throw new Error(`unexpected request: ${u}`);
-  };
-  return { state, store: createSheetStore(config, fetchImpl) };
-}
+const fakeGoogle = (options) => makeFakeGoogle(config, options);
 
 test('parseSheetId accepts links and bare ids', () => {
   assert.equal(parseSheetId(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit#gid=0`), SHEET_ID);

@@ -2,7 +2,7 @@
 // import template (Name, Phone, Plan, Fee, Start Date, WhatsApp Consent), so
 // a backup can be re-imported with the "Import from Excel" tab.
 
-import { PLANS, calculateExpiry, normalizePhone, parseAnyDate, parseConsent, parsePackage, parsePlan } from '../members.js';
+import { planMonths, calculateExpiry, normalizePhone, parseAnyDate, parseConsent, parsePackage, parsePlan } from '../members.js';
 
 export const SHEET_NAME = 'Members';
 
@@ -47,7 +47,7 @@ export function rowToMember(row) {
   const start = parseAnyDate(startDate) || '';
   const memberPlan = parsePlan(plan) || String(plan).trim();
   let expiry = parseAnyDate(expiryDate) || '';
-  if (!expiry && start && PLANS[memberPlan]) expiry = calculateExpiry(start, memberPlan);
+  if (!expiry && start && planMonths(memberPlan)) expiry = calculateExpiry(start, memberPlan);
 
   const feeNumber = Number(String(fee).replace(/[₹,\s]/g, ''));
   return {

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
-  PLAN_NAMES, PACKAGES, PACKAGE_NAMES, DEFAULT_PACKAGE, suggestedFee, createMember, normalizePhone,
+  PLAN_NAMES, PACKAGES, PACKAGE_NAMES, DEFAULT_PACKAGE, suggestedFee, planFromFee, createMember, normalizePhone,
   formatPhone, findByPhone, calculateExpiry, formatDate, isValidISODate, todayISO,
 } from '../lib/members.js';
 
@@ -27,8 +27,12 @@ export default function MemberForm({ members, onAdd }) {
     if (field === 'fee') setFeeEdited(true);
     setForm((f) => {
       const next = { ...f, [field]: value };
-      if ((field === 'gymPackage' || field === 'plan') && !feeEdited) {
-        next.fee = String(suggestedFee(next.gymPackage, next.plan) ?? '');
+      if (field === 'fee') {
+        // The amount decides the duration: ₹1,000 on a ₹500/month package = 2 months.
+        next.plan = planFromFee(next.gymPackage, value, f.plan);
+      } else if (field === 'gymPackage' || field === 'plan') {
+        if (!feeEdited) next.fee = String(suggestedFee(next.gymPackage, next.plan) ?? '');
+        else if (field === 'gymPackage') next.plan = planFromFee(next.gymPackage, next.fee, next.plan);
       }
       return next;
     });
@@ -116,7 +120,8 @@ export default function MemberForm({ members, onAdd }) {
           <label>
             Duration
             <select value={form.plan} onChange={set('plan')}>
-              {PLAN_NAMES.map((p) => <option key={p}>{p}</option>)}
+              {(PLAN_NAMES.includes(form.plan) ? PLAN_NAMES : [...PLAN_NAMES, form.plan])
+                .map((p) => <option key={p}>{p}</option>)}
             </select>
           </label>
         </div>
