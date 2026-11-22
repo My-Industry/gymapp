@@ -234,6 +234,12 @@ textarea.entry {
 /* ---------- Monthly records ---------- */
 .history-filters { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
 .history-filters select { width: auto; min-width: 9rem; }
+@media (min-width: 721px) {
+  /* Desktop: month picker and search sit side by side on one line. */
+  .history-filters { flex-wrap: nowrap; }
+  .history-filters select { flex: none; }
+  .history-filters .search { flex: 1 1 auto; width: 16rem; max-width: 280px; }
+}
 .history-table td { vertical-align: top; }
 .history-table .small-text { font-size: .75rem; }
 .badge.tag-new, .stat.tag-new { background: var(--good-bg); color: var(--good); }
