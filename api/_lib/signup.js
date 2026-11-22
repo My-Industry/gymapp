@@ -60,3 +60,13 @@ const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
 export function isLocalRequest(req) {
   return LOOPBACK.has(req.socket?.remoteAddress);
 }
+
+/** Cleans an email address. Returns { email } (lower-case) or { error }. */
+export function validateEmail(input) {
+  const email = String(input ?? '').trim().toLowerCase();
+  if (!email) return { error: 'Email address is required.' };
+  if (email.length > 254 || !/^[^\s@,:;<>"()]+@[^\s@,:;<>"()]+\.[^\s@,:;<>"()]{2,}$/.test(email)) {
+    return { error: 'Enter a valid email address.' };
+  }
+  return { email };
+}

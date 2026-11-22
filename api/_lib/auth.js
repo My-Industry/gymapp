@@ -5,8 +5,11 @@
 //   AUTH_SECRET  random string, 32+ chars, used to sign the session cookie
 //   AUTH_USERS   comma-separated  username:passwordHash  pairs
 //                (create each hash with:  npm run hash-password)
+//                Optional once GOOGLE_SHEET_ID_server is set: accounts then live in that sheet
+//                (see accounts.js), and AUTH_USERS only holds any accounts you want to keep here.
 
 import { scryptSync, randomBytes, timingSafeEqual, createHmac } from 'node:crypto';
+import { readAccountsConfig } from './sheets.js';
 
 export const COOKIE_NAME = 'gym_session';
 export const SESSION_SECONDS = 7 * 24 * 60 * 60; // 7 days
@@ -40,7 +43,7 @@ export function verifyPassword(password, stored) {
 // Used when the username doesn't exist, so a wrong username and a wrong
 // password take the same time (no hint about which usernames are valid).
 let dummyHash;
-function burnTime(password) {
+export function burnTime(password) {
   dummyHash ??= hashPassword('not-a-real-password');
   verifyPassword(password, dummyHash);
 }
@@ -76,7 +79,8 @@ export function parseAdmins(raw, users) {
 export function readConfig(env = process.env) {
   const secret = env.AUTH_SECRET || '';
   const users = parseUsers(env.AUTH_USERS);
-  if (secret.length < 32 || users.size === 0) return { ok: false };
+  // Accounts can come from AUTH_USERS or from the accounts sheet; with neither there is nobody to sign in.
+  if (secret.length < 32 || (users.size === 0 && !readAccountsConfig(env).ok)) return { ok: false };
   return { ok: true, secret, users, admins: parseAdmins(env.AUTH_ADMINS, users) };
 }
 
@@ -151,16 +155,6 @@ export function clearCookie({ secure }) {
 
 export function isSecureRequest(req) {
   return String(req.headers?.['x-forwarded-proto'] || '').split(',')[0].trim() === 'https';
-}
-
-/** { user, role } for this request, or null. Re-checks AUTH_USERS so removing
- *  a user from the env var signs them out on the next request. */
-export function getSession(req, env = process.env) {
-  const config = readConfig(env);
-  if (!config.ok) return null;
-  const token = parseCookies(req.headers?.cookie)[COOKIE_NAME];
-  const user = verifyToken(token, config.secret);
-  return user && config.users.has(user) ? { user, role: roleOf(config, user) } : null;
 }
 
 export function readBody(req) {

@@ -22,7 +22,7 @@ export default function MonthlyRecords({ initialSearch = '', onUnauthorized }) {
       .catch((err) => {
         if (cancelled) return;
         if (err.unauthorized) { unauthorized.current?.(); return; }
-        setState({ status: 'error', months: [], error: err.message });
+        setState({ status: 'error', months: [], error: err.message, code: err.code });
       });
     return () => { cancelled = true; };
   }, []);
@@ -56,7 +56,13 @@ export default function MonthlyRecords({ initialSearch = '', onUnauthorized }) {
 
   if (state.status === 'loading') return <p className="muted">Loading monthly records…</p>;
   if (state.status === 'error') {
-    return <div className="alert error">Couldn't load the monthly records. {state.error}</div>;
+    return (
+      <div className="alert error">
+        {state.code === 'not-configured'
+          ? 'No Google Sheet is connected yet. Connect one from the Profile page to see monthly records.'
+          : `Couldn't load the monthly records. ${state.error}`}
+      </div>
+    );
   }
   if (months.length === 0) {
     return (
