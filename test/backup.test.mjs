@@ -38,7 +38,7 @@ test('members become a header row plus one row each', () => {
   const rows = membersToRows(members);
   assert.deepEqual(rows[0], HEADERS);
   assert.equal(rows.length, 3);
-  assert.deepEqual(rows[1], ['GYM-000001', 'Ravi Kumar', '919876543210', 'Monthly', 1500, '2026-01-15', '2026-02-15', 'Yes', '2026-01-15', 'Basic Gym']);
+  assert.deepEqual(rows[1], ['GYM-000001', 'Ravi Kumar', '919876543210', 'Monthly', 1500, '2026-01-15', '2026-02-15', 'Yes', '2026-01-15', 'Basic Gym', '', '', '']); // no body details: blank cells
   assert.equal(rows[2][7], 'No');
   assert.deepEqual(membersToRows([]), [HEADERS]);
 });

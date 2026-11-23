@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import BodyStatsFields from './BodyStatsFields.jsx';
 import {
   PLAN_NAMES, PACKAGES, PACKAGE_NAMES, DEFAULT_PACKAGE, suggestedFee, planFromFee, validateMember, normalizePhone,
   formatPhone, findByPhone, calculateExpiry, formatDate, isValidISODate, todayISO,
@@ -15,6 +16,9 @@ export default function MemberEditForm({ member, members, onSave, onCancel }) {
     plan: member.plan,
     fee: String(member.fee),
     startDate: member.startDate,
+    dateOfBirth: member.dateOfBirth || '',
+    weightKg: member.weightKg == null ? '' : String(member.weightKg),
+    heightCm: member.heightCm == null ? '' : String(member.heightCm),
     whatsappConsent: member.whatsappConsent,
   }));
   const [feeEdited, setFeeEdited] = useState(false); // once typed by hand, stop auto-filling
@@ -137,6 +141,8 @@ export default function MemberEditForm({ member, members, onSave, onCancel }) {
           </small>
         )}
       </label>
+
+      <BodyStatsFields form={form} set={set} />
 
       <label className="check">
         <input type="checkbox" checked={form.whatsappConsent} onChange={set('whatsappConsent')} />

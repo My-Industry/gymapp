@@ -25,6 +25,9 @@ const member = (n, extra = {}) => ({
   startDate: '2026-01-15',
   expiryDate: '2026-02-15',
   whatsappConsent: true,
+  dateOfBirth: '',
+  weightKg: null,
+  heightCm: null,
   createdAt: '2026-01-15T10:00:00.000Z',
   ...extra,
 });
@@ -53,6 +56,18 @@ test('a member survives a trip to the sheet and back', () => {
   const m = member(1);
   const back = rowToMember(memberToRow(m));
   assert.deepEqual(back, { ...m, createdAt: '2026-01-15' });
+});
+
+test('date of birth, weight and height survive a trip to the sheet and back', () => {
+  const m = member(1, { dateOfBirth: '1998-03-12', weightKg: 72.5, heightCm: 175 });
+  const row = memberToRow(m);
+  assert.deepEqual(row.slice(-3), ['1998-03-12', 72.5, 175]);
+  assert.deepEqual(rowToMember(row), { ...m, createdAt: '2026-01-15' });
+  // hand-typed cells are read forgivingly; rubbish becomes "not recorded"
+  const typed = rowToMember([...memberToRow(member(2)).slice(0, 10), '12/03/1998', ' 72,5 ', 'tall']);
+  assert.equal(typed.dateOfBirth, '1998-03-12');
+  assert.equal(typed.weightKg, 72.5); // a comma is read as a decimal point
+  assert.equal(typed.heightCm, null);
 });
 
 test('rowToMember tolerates hand-edited cells', () => {
@@ -86,9 +101,9 @@ test('add writes the header first when the tab is empty', async () => {
   assert.equal(state.rows[1][0], 'GYM-000001');
 });
 
-test('a sheet from before packages existed gets the Package header and still lists old members', async () => {
-  const oldHeader = HEADERS.slice(0, -1);
-  const oldRow = memberToRow(member(1)).slice(0, -1);
+test('a sheet from before packages existed gets the newer headers and still lists old members', async () => {
+  const oldHeader = HEADERS.slice(0, 9); // no Package, Date of Birth, Weight or Height columns yet
+  const oldRow = memberToRow(member(1)).slice(0, 9);
   const { store, state } = fakeGoogle({ rows: [oldHeader, oldRow] });
   assert.equal((await store.list())[0].gymPackage, ''); // blank, not guessed
   await store.add([member(2, { gymPackage: 'Gym + Cardio' })]);

@@ -361,6 +361,46 @@ textarea.entry {
   .connect-card .facts dd { word-break: break-all; }
 }
 
+/* "Need help?" at the bottom right of the connect card, and the tutorial page. */
+.card-help { display: flex; justify-content: flex-end; margin-top: 1rem; }
+.card-help .link { font-size: .85rem; color: var(--accent-dark); text-decoration: underline; }
+.guide-card { max-width: 720px; }
+.guide-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.guide-head h2 { margin: 0; }
+.guide-steps { margin: 1rem 0 0; padding: 0; list-style: none; counter-reset: step; display: grid; gap: 1.1rem; }
+.guide-steps li { counter-increment: step; position: relative; padding-left: 2.6rem; }
+.guide-steps li::before {
+  content: counter(step); position: absolute; left: 0; top: 0; width: 1.9rem; height: 1.9rem; border-radius: 50%;
+  background: var(--accent); color: #fff; font-weight: 700; display: grid; place-items: center; font-size: .9rem;
+}
+.guide-steps h3 { margin: .1rem 0 .35rem; font-size: 1.02rem; }
+.guide-steps p { margin: 0 0 .4rem; line-height: 1.55; }
+.guide-note { background: var(--warn-bg); color: var(--warn); padding: .5rem .7rem; border-radius: 8px; font-size: .9rem; }
+.guide-link { display: inline-block; margin-top: .2rem; color: var(--accent-dark); font-weight: 600; font-size: .9rem; }
+.guide-sub { margin: 1.5rem 0 .5rem; font-size: 1.05rem; }
+.guide-problems { margin: 0; display: grid; gap: .75rem; }
+.guide-problems dt { font-weight: 600; }
+.guide-problems dd { margin: .15rem 0 0; color: var(--muted); line-height: 1.5; }
+.guide-foot { margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+@media (max-width: 720px) {
+  .guide-foot > button { flex: 1 1 100%; }
+}
+
+/* Date of birth / weight / height fields and BMI. */
+.body-row { grid-template-columns: repeat(3, 1fr); }
+.bmi-preview { font-size: .95rem; }
+.badge.bmi-under { background: #e6f0fd; color: #1f5fbf; }
+.badge.bmi-normal { background: var(--good-bg); color: var(--good); }
+.badge.bmi-over { background: var(--warn-bg); color: var(--warn); }
+.badge.bmi-obese { background: var(--bad-bg); color: var(--bad); }
+@media (max-width: 720px) {
+  .body-row { grid-template-columns: 1fr; }
+}
+
+/* Weight / height progress on the member History page. */
+.progress-title { margin: 1rem 0 0; font-size: 1.02rem; }
+.change { font-size: .85rem; font-weight: 600; } /* neutral: gaining or losing isn't good or bad for everyone */
+
 /* One member's history page. */
 .member-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
 .member-summary .stat { background: #f3f4f6; display: grid; gap: .15rem; }

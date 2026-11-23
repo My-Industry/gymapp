@@ -9,8 +9,8 @@ import { VERSION } from './lib/version.js';
 import BackupChip from './components/BackupChip.jsx';
 import MonthlyRecords from './components/MonthlyRecords.jsx';
 import MemberHistory from './components/MemberHistory.jsx';
-import ConnectPage from './components/ConnectPage.jsx';
 import AboutPage from './components/AboutPage.jsx';
+import SheetGuidePage from './components/SheetGuidePage.jsx';
 import useBackup from './lib/useBackup.js';
 import {
   loadMembers, addMembers, updateMember, deleteMember, loadLegacyMembers, clearLegacyMembers,
@@ -20,12 +20,12 @@ const TABS = [
   { key: 'members', label: 'Members', menuLabel: 'Members' },
   { key: 'add', label: 'Add member', menuLabel: 'Add Member' },
   { key: 'history', label: 'Monthly records', menuLabel: 'Monthly Records' },
-  { key: 'connect', label: 'Connect', menuLabel: 'Connect Google Sheet', adminOnly: true },
 ];
 
 export default function GymApp({ user, role, onLogout }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showNotes, setShowNotes] = useState(false); // the release notes window
+  const [connectOpen, setConnectOpen] = useState(false); // open Settings with the Google Sheet form already showing
   const [historySearch, setHistorySearch] = useState('');
   const topbarRef = useRef(null);
   const [members, setMembers] = useState([]);
@@ -37,9 +37,8 @@ export default function GymApp({ user, role, onLogout }) {
   const backup = useBackup(members);
   const isAdmin = role === 'admin';
   const ready = load.status === 'ready';
-  const visibleTabs = TABS.filter((t) => !t.adminOnly || isAdmin);
   // The load problem banner belongs to the member pages, not to Profile or Connect.
-  const showLoadProblem = !['settings', 'connect', 'about'].includes(tab);
+  const showLoadProblem = !['settings', 'about', 'guide'].includes(tab);
 
   // Changes to the sheet run one at a time so their answers can't arrive out of order.
   const queue = useRef(Promise.resolve());
@@ -88,10 +87,14 @@ export default function GymApp({ user, role, onLogout }) {
   // Opening "Monthly records" from the menu starts fresh; from a member's card it is pre-searched for them.
   const goTo = (key) => {
     if (key === 'history') setHistorySearch('');
+    setConnectOpen(false);
     setTab(key);
     setMenuOpen(false);
   };
   const showHistoryFor = (id) => { setHistorySearch(id); setTab('history'); };
+  // The "How to connect your Google Sheet" tutorial; Back returns to the page it was opened from.
+  const [guideFrom, setGuideFrom] = useState('settings');
+  const openGuide = () => { setGuideFrom(tab === 'guide' ? guideFrom : tab); setTab('guide'); setMenuOpen(false); };
 
   /** Runs a sheet change; on a sign-out or failure rethrows a readable error. */
   const run = (task) => enqueue(async () => {
@@ -180,7 +183,7 @@ export default function GymApp({ user, role, onLogout }) {
                 <small>{isAdmin ? 'Admin' : 'Staff'} · Settings</small>
               </span>
             </button>
-            {visibleTabs.map((t) => (
+            {TABS.map((t) => (
               <button
                 key={t.key}
                 className={tab === t.key ? 'menu-item active' : 'menu-item'}
@@ -217,7 +220,7 @@ export default function GymApp({ user, role, onLogout }) {
           </div>
         </div>
         <nav className="tabs desktop-only">
-          {visibleTabs.map((t) => (
+          {TABS.map((t) => (
             <button
               key={t.key}
               className={tab === t.key ? 'tab active' : 'tab'}
@@ -249,11 +252,14 @@ export default function GymApp({ user, role, onLogout }) {
             <p className="muted small-text">
               Your members can't load because no Google Sheet is connected yet. Connect your Google Sheet account here to get started.
             </p>
-            <button className="primary" onClick={() => goTo('connect')}>Connect</button>
+            <button className="primary" onClick={() => { setConnectOpen(true); setTab('settings'); }}>Connect</button>
+            <div className="card-help">
+              <button type="button" className="link" onClick={openGuide}>Need help?</button>
+            </div>
           </div>
         ) : (
           <div className="alert error">
-            No Google Sheet is connected yet. Ask an admin to connect one from the Profile page.
+            No Google Sheet is connected yet. Ask an admin to connect one from Settings.
           </div>
         )
       )}
@@ -306,18 +312,20 @@ export default function GymApp({ user, role, onLogout }) {
             isAdmin={isAdmin}
             backup={backup}
             memberCount={members.length}
-            onConnectionChange={refresh}
+            connectOpen={connectOpen}
+            onConnectionChange={() => { refresh(); if (connectOpen) { setConnectOpen(false); setTab('members'); } }}
             onUnauthorized={onLogout}
+            onHelp={openGuide}
+          />
+        )}
+        {tab === 'guide' && (
+          <SheetGuidePage
+            onBack={() => setTab(guideFrom)}
+            onConnect={() => { setConnectOpen(true); setTab('settings'); }}
+            canConnect={isAdmin}
           />
         )}
         {tab === 'about' && <AboutPage onShowVersion={() => setShowNotes(true)} />}
-        {tab === 'connect' && isAdmin && (
-          <ConnectPage
-            onConnected={() => { refresh(); setTab('members'); }}
-            onUnauthorized={onLogout}
-            onOpenProfile={() => goTo('settings')}
-          />
-        )}
       </main>
     </div>
   );

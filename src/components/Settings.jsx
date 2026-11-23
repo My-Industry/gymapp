@@ -25,7 +25,7 @@ function ProfileCard({ user, isAdmin }) {
 }
 
 // The Profile page. Everyone sees their account; admins also manage the Google Sheet here.
-export default function Settings({ user, isAdmin, backup, memberCount, onConnectionChange, onUnauthorized }) {
+export default function Settings({ user, isAdmin, backup, memberCount, connectOpen = false, onConnectionChange, onUnauthorized, onHelp }) {
   const { settings, status, error: backupError } = backup;
   const [busy, setBusy] = useState(null); // 'backup' | null
 
@@ -115,7 +115,7 @@ export default function Settings({ user, isAdmin, backup, memberCount, onConnect
         </p>
       </div>
 
-      <GoogleConnect onChange={onConnectionChange} onUnauthorized={onUnauthorized} />
+      <GoogleConnect startOpen={connectOpen} onChange={onConnectionChange} onUnauthorized={onUnauthorized} onHelp={onHelp} />
 
       <div className="card narrow coming-soon" aria-disabled="true">
         <div className="card-title">

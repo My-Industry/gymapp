@@ -251,6 +251,70 @@ export function whatsappLink(phone) {
   return digits.length === 12 && digits.startsWith('91') ? `https://wa.me/${digits}` : null;
 }
 
+/* ---------------------------------------------------------------- Body details (BMI) */
+
+export const WEIGHT_RANGE = { min: 20, max: 300 }; // kg
+export const HEIGHT_RANGE = { min: 50, max: 250 }; // cm
+const MAX_AGE = 110;
+
+/** Age in whole years on `today`, or null when the date of birth is missing or invalid. */
+export function ageFromDob(dateOfBirth, today = todayISO()) {
+  if (!isValidISODate(dateOfBirth)) return null;
+  const [by, bm, bd] = dateOfBirth.split('-').map(Number);
+  const [ty, tm, td] = today.split('-').map(Number);
+  let age = ty - by;
+  if (tm < bm || (tm === bm && td < bd)) age -= 1;
+  return age >= 0 ? age : null;
+}
+
+/** BMI = weight (kg) / height (m) squared, to one decimal. Null unless both are usable numbers. */
+export function calculateBmi(weightKg, heightCm) {
+  const w = Number(weightKg);
+  const h = Number(heightCm);
+  if (!(w > 0) || !(h > 0) || weightKg === '' || heightCm === '' || weightKg === null || heightCm === null) return null;
+  return Math.round((w / ((h / 100) ** 2)) * 10) / 10;
+}
+
+/** The standard (WHO) adult BMI groups. */
+export function bmiCategory(bmi) {
+  if (bmi === null || bmi === undefined || !isFinite(bmi)) return null;
+  if (bmi < 18.5) return { key: 'under', label: 'Underweight' };
+  if (bmi < 25) return { key: 'normal', label: 'Normal' };
+  if (bmi < 30) return { key: 'over', label: 'Overweight' };
+  return { key: 'obese', label: 'Obese' };
+}
+
+const blank = (v) => v === undefined || v === null || String(v).trim() === '';
+
+/**
+ * Reads the optional date of birth, weight (kg) and height (cm) from form or sheet input.
+ * Returns { errors, dateOfBirth ('' when blank), weightKg (null when blank), heightCm (null when blank) }.
+ */
+export function parseBodyDetails(input, today = todayISO()) {
+  const errors = [];
+  let dateOfBirth = '';
+  if (!blank(input.dateOfBirth)) {
+    const dob = isValidISODate(input.dateOfBirth) ? input.dateOfBirth : parseAnyDate(input.dateOfBirth);
+    if (!dob) errors.push('Date of birth is not a valid date');
+    else if (dob > today) errors.push('Date of birth cannot be in the future');
+    else if (ageFromDob(dob, today) > MAX_AGE) errors.push('Date of birth is not a valid date');
+    else dateOfBirth = dob;
+  }
+
+  const number = (value, label, unit, { min, max }) => {
+    if (blank(value)) return null;
+    const n = Number(String(value).replace(/\s/g, '').replace(',', '.')); // "72,5" means 72.5
+    if (!isFinite(n) || n < min || n > max) {
+      errors.push(`${label} must be between ${min} and ${max} ${unit}`);
+      return null;
+    }
+    return Math.round(n * 10) / 10;
+  };
+  const weightKg = number(input.weightKg, 'Weight', 'kg', WEIGHT_RANGE);
+  const heightCm = number(input.heightCm, 'Height', 'cm', HEIGHT_RANGE);
+  return { errors, dateOfBirth, weightKg, heightCm };
+}
+
 /* ---------------------------------------------------------------- Members */
 
 export function findByPhone(members, normalizedPhone) {
@@ -291,6 +355,10 @@ export function validateMember(input, existing = []) {
   const startDate = isValidISODate(input.startDate) ? input.startDate : parseAnyDate(input.startDate);
   if (!startDate) errors.push('Start date is missing or not a valid date');
 
+  // Optional body details (used for BMI). Left blank, they are simply not recorded.
+  const body = parseBodyDetails(input);
+  errors.push(...body.errors);
+
   if (errors.length) return { errors, member: null };
 
   return {
@@ -304,6 +372,9 @@ export function validateMember(input, existing = []) {
       startDate,
       expiryDate: calculateExpiry(startDate, plan),
       whatsappConsent: Boolean(input.whatsappConsent),
+      dateOfBirth: body.dateOfBirth,
+      weightKg: body.weightKg,
+      heightCm: body.heightCm,
     },
   };
 }

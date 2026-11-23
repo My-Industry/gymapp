@@ -1,4 +1,4 @@
-import { formatDate, formatPhone } from '../lib/members.js';
+import { calculateBmi, formatDate, formatPhone } from '../lib/members.js';
 
 export const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
 
@@ -11,7 +11,8 @@ export default function HistoryTable({ rows, showMonth, emptyText = 'No records 
           <tr>
             {showMonth && <th>Month</th>}
             <th>ID</th><th>Name</th><th>Package</th><th>Duration</th>
-            <th>Start</th><th>Expiry</th><th className="num">Fee paid</th><th>Tag</th>
+            <th>Start</th><th>Expiry</th><th className="num">Fee paid</th>
+            <th className="num">Weight</th><th className="num">Height</th><th className="num">BMI</th><th>Tag</th>
           </tr>
         </thead>
         <tbody>
@@ -31,11 +32,14 @@ export default function HistoryTable({ rows, showMonth, emptyText = 'No records 
                 {r.status === 'Expired' && <div className="muted small-text">Expired</div>}
               </td>
               <td className="num">{r.fee ? inr.format(r.fee) : '—'}</td>
+              <td className="num">{r.weightKg ? `${r.weightKg} kg` : '—'}</td>
+              <td className="num">{r.heightCm ? `${r.heightCm} cm` : '—'}</td>
+              <td className="num">{calculateBmi(r.weightKg, r.heightCm) ?? '—'}</td>
               <td><span className={`badge tag-${String(r.tag).toLowerCase()}`}>{r.tag}</span></td>
             </tr>
           ))}
           {rows.length === 0 && (
-            <tr><td colSpan={showMonth ? 9 : 8} className="muted center">{emptyText}</td></tr>
+            <tr><td colSpan={showMonth ? 12 : 11} className="muted center">{emptyText}</td></tr>
           )}
         </tbody>
       </table>

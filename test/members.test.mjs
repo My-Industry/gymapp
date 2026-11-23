@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   normalizePhone, addMonths, calculateExpiry, parseAnyDate, parsePlan,
   nextMemberId, createMember, prepareImport, memberStatus, formatPhone, parsePackage, suggestedFee,
-  compareIds, isListedMember, whatsappLink, matchesFilters,
+  compareIds, isListedMember, whatsappLink, matchesFilters, calculateBmi, bmiCategory, ageFromDob,
 } from '../src/lib/members.js';
 
 test('packages: prices, names and suggested fee', () => {
@@ -161,4 +161,50 @@ test('status', () => {
   assert.equal(memberStatus({ expiryDate: '2026-11-20' }, '2026-11-21').key, 'expired');
   assert.equal(memberStatus({ expiryDate: '2026-11-25' }, '2026-11-21').key, 'expiring');
   assert.equal(memberStatus({ expiryDate: '2026-12-25' }, '2026-11-21').key, 'active');
+});
+
+test('BMI: weight / height squared, to one decimal, with the standard groups', () => {
+  assert.equal(calculateBmi(70, 175), 22.9);
+  assert.equal(calculateBmi(70, 170), 24.2);
+  assert.equal(calculateBmi('82.5', '180'), 25.5);
+  assert.equal(calculateBmi(null, 175), null);
+  assert.equal(calculateBmi(70, ''), null);
+  assert.equal(calculateBmi(0, 175), null);
+  assert.equal(calculateBmi(70, 0), null);
+  assert.equal(bmiCategory(18.4).label, 'Underweight');
+  assert.equal(bmiCategory(18.5).label, 'Normal');
+  assert.equal(bmiCategory(24.9).label, 'Normal');
+  assert.equal(bmiCategory(25).label, 'Overweight');
+  assert.equal(bmiCategory(29.9).label, 'Overweight');
+  assert.equal(bmiCategory(30).label, 'Obese');
+  assert.equal(bmiCategory(null), null);
+});
+
+test('age is counted in whole years from the date of birth', () => {
+  assert.equal(ageFromDob('1998-03-12', '2026-03-11'), 27); // birthday tomorrow
+  assert.equal(ageFromDob('1998-03-12', '2026-03-12'), 28); // birthday today
+  assert.equal(ageFromDob('2000-02-29', '2026-02-28'), 25);
+  assert.equal(ageFromDob('', '2026-03-12'), null);
+  assert.equal(ageFromDob('2030-01-01', '2026-03-12'), null); // not born yet
+});
+
+test('date of birth, weight and height are optional, checked when given, and saved with the member', () => {
+  const base = { name: 'Asha', phone: '98765 43210', plan: 'Monthly', fee: 500, startDate: '2026-03-01' };
+  const plain = createMember(base, []).member;
+  assert.deepEqual([plain.dateOfBirth, plain.weightKg, plain.heightCm], ['', null, null]);
+
+  const full = createMember({ ...base, dateOfBirth: '1998-03-12', weightKg: '72.46', heightCm: '175' }, []).member;
+  assert.deepEqual([full.dateOfBirth, full.weightKg, full.heightCm], ['1998-03-12', 72.5, 175]);
+  assert.equal(createMember({ ...base, dateOfBirth: '12/03/1998' }, []).member.dateOfBirth, '1998-03-12');
+  assert.equal(createMember({ ...base, weightKg: '72,5' }, []).member.weightKg, 72.5);
+
+  const errs = (extra) => createMember({ ...base, ...extra }, []).errors.join(' | ');
+  assert.match(errs({ dateOfBirth: 'soon' }), /Date of birth is not a valid date/);
+  assert.match(errs({ dateOfBirth: '2999-01-01' }), /cannot be in the future/);
+  assert.match(errs({ dateOfBirth: '1800-01-01' }), /not a valid date/);
+  assert.match(errs({ weightKg: 5 }), /Weight must be between 20 and 300 kg/);
+  assert.match(errs({ weightKg: 'heavy' }), /Weight must be/);
+  assert.match(errs({ heightCm: 3 }), /Height must be between 50 and 250 cm/);
+  assert.match(errs({ heightCm: 1.75 }), /Height must be between 50 and 250 cm/); // metres typed by mistake
+  assert.equal(errs({ weightKg: '', heightCm: '', dateOfBirth: '' }), '');
 });

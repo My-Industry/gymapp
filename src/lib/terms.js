@@ -28,7 +28,7 @@ export const TERMS = [
   {
     title: '4. Responsibility for your members’ information',
     body: [
-      'You are responsible for the information you enter about your members, and for having their permission to keep it and to contact them, for example on WhatsApp.',
+      'You are responsible for the information you enter about your members, including health details such as date of birth, weight and height, and for having their permission to keep it and to contact them, for example on WhatsApp.',
       'Use the app and your members’ details only for running your gym, and follow the laws that apply to you.',
     ],
   },

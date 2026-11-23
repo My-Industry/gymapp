@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import BodyStatsFields from './BodyStatsFields.jsx';
 import {
   PLAN_NAMES, PACKAGES, PACKAGE_NAMES, DEFAULT_PACKAGE, suggestedFee, planFromFee, createMember, normalizePhone,
   formatPhone, findByPhone, calculateExpiry, formatDate, isValidISODate, todayISO,
@@ -11,6 +12,9 @@ const emptyForm = () => ({
   plan: 'Monthly',
   fee: String(suggestedFee(DEFAULT_PACKAGE, 'Monthly')),
   startDate: todayISO(),
+  dateOfBirth: '',
+  weightKg: '',
+  heightCm: '',
   whatsappConsent: false,
 });
 
@@ -148,6 +152,8 @@ export default function MemberForm({ members, onAdd }) {
             <input value={expiry ? formatDate(expiry) : '—'} readOnly className="readonly" tabIndex={-1} />
           </label>
         </div>
+
+        <BodyStatsFields form={form} set={set} />
 
         <label className="check">
           <input type="checkbox" checked={form.whatsappConsent} onChange={set('whatsappConsent')} />

@@ -19,7 +19,8 @@ export const TAGS = { NEW: 'New', EXISTING: 'Existing', RENEWED: 'Renewed', UPGR
 export const MONTH_HEADERS = [
   'Member ID', 'Name', 'Phone', 'Package', 'Duration', 'Start Date', 'Expiry Date',
   'Fee Paid This Month', 'Tag', 'Upgraded From', 'Status',
-];
+  'Weight (kg)', 'Height (cm)',
+]; // New columns are only ever added at the end. Weight and height are what the member had that month.
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -83,12 +84,17 @@ const startsIn = (m, bounds) => m.startDate >= bounds.start && m.startDate <= bo
 export function rowToValues(r) {
   return [
     r.id, r.name, r.phone, r.gymPackage, r.plan, r.startDate, r.expiryDate,
-    r.fee, r.tag, r.upgradedFrom || '', r.status,
+    r.fee, r.tag, r.upgradedFrom || '', r.status, r.weightKg ?? '', r.heightCm ?? '',
   ];
 }
 
+const measurement = (v) => {
+  const n = Number(String(v ?? '').replace(/\s/g, '').replace(',', '.'));
+  return String(v ?? '').trim() !== '' && Number.isFinite(n) && n > 0 ? n : null;
+};
+
 export function valuesToRow(values) {
-  const [id, name, phone, gymPackage, plan, startDate, expiryDate, fee, tag, upgradedFrom, status] =
+  const [id, name, phone, gymPackage, plan, startDate, expiryDate, fee, tag, upgradedFrom, status, weight, height] =
     Array.from({ length: MONTH_HEADERS.length }, (_, i) => String(values?.[i] ?? '').trim());
   if (!id) return null;
   const feeNumber = Number(fee.replace(/[₹,\s]/g, ''));
@@ -96,6 +102,8 @@ export function valuesToRow(values) {
     id, name, phone, gymPackage, plan, startDate, expiryDate,
     fee: Number.isFinite(feeNumber) ? feeNumber : 0,
     tag, upgradedFrom, status,
+    weightKg: measurement(weight),
+    heightCm: measurement(height),
   };
 }
 
@@ -112,6 +120,8 @@ function rowFromMember(m, bounds, tag, fee) {
     tag,
     upgradedFrom: '',
     status: statusFor(m.expiryDate, bounds),
+    weightKg: m.weightKg ?? null,
+    heightCm: m.heightCm ?? null,
   };
 }
 
@@ -181,6 +191,9 @@ export function rowAfterUpdate(row, before, after, month) {
     startDate: after.startDate,
     expiryDate: after.expiryDate,
     status: statusFor(after.expiryDate, bounds),
+    // This month's weight and height: the latest values saved this month win.
+    weightKg: after.weightKg ?? null,
+    heightCm: after.heightCm ?? null,
   };
 
   if (packageChanged || datesChanged) {
@@ -202,6 +215,34 @@ export function rowForLeft(row, member, month) {
   const bounds = monthBounds(month);
   const base = row || rowFromMember(member, bounds, TAGS.LEFT, 0);
   return { ...base, tag: TAGS.LEFT, status: 'Left' };
+}
+
+/**
+ * How a member's body measurements changed across their monthly rows (`rows` newest first, as
+ * memberHistory returns them). Weight and height are looked at separately, so a month without
+ * one of them doesn't hide the other. Each part is null when there is nothing recorded:
+ *   { weight: { latest, first, change, since }, height: {...}, bmi: { latest, first, change, since } }
+ * `change` is latest - first (null with fewer than two readings); `since` is the month of the first reading.
+ */
+export function measurementProgress(rows, bmiOf) {
+  const track = (valueOf) => {
+    const points = rows.map((r) => ({ month: r.month, value: valueOf(r) })).filter((p) => p.value !== null && p.value !== undefined);
+    if (points.length === 0) return null;
+    const latest = points[0];
+    const first = points[points.length - 1];
+    const many = points.length > 1;
+    return {
+      latest: latest.value,
+      first: first.value,
+      change: many ? Math.round((latest.value - first.value) * 10) / 10 : null,
+      since: many ? first.month : null,
+    };
+  };
+  return {
+    weight: track((r) => r.weightKg),
+    height: track((r) => r.heightCm),
+    bmi: track((r) => bmiOf(r.weightKg, r.heightCm)),
+  };
 }
 
 /**

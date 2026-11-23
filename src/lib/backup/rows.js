@@ -9,7 +9,13 @@ export const SHEET_NAME = 'Members';
 export const HEADERS = [
   'Member ID', 'Name', 'Phone', 'Plan', 'Fee',
   'Start Date', 'Expiry Date', 'WhatsApp Consent', 'Registered On', 'Package',
-]; // 'Package' was added last so existing sheets keep their column positions.
+  'Date of Birth', 'Weight (kg)', 'Height (cm)',
+]; // New columns are only ever added at the end, so existing sheets keep their column positions.
+
+const positiveNumber = (v) => {
+  const n = Number(String(v ?? '').replace(/\s/g, '').replace(',', '.')); // "72,5" means 72.5
+  return String(v ?? '').trim() !== '' && Number.isFinite(n) && n > 0 ? n : null;
+};
 
 /** One member as a sheet row (same column order as HEADERS). */
 export function memberToRow(m) {
@@ -24,6 +30,9 @@ export function memberToRow(m) {
     m.whatsappConsent ? 'Yes' : 'No',
     m.createdAt ? String(m.createdAt).slice(0, 10) : '',
     m.gymPackage || '',
+    m.dateOfBirth || '',
+    m.weightKg ?? '',
+    m.heightCm ?? '',
   ];
 }
 
@@ -38,7 +47,7 @@ export function membersToRows(members) {
  * phone typed with spaces, ...). Returns null for rows without an id or name.
  */
 export function rowToMember(row) {
-  const [id, name, phone, plan, fee, startDate, expiryDate, consent, createdOn, gymPackage] =
+  const [id, name, phone, plan, fee, startDate, expiryDate, consent, createdOn, gymPackage, dob, weight, height] =
     Array.from({ length: HEADERS.length }, (_, i) => row?.[i] ?? '');
   const memberId = String(id).trim();
   const memberName = String(name).trim();
@@ -61,5 +70,8 @@ export function rowToMember(row) {
     expiryDate: expiry,
     whatsappConsent: parseConsent(consent),
     createdAt: String(createdOn).trim(),
+    dateOfBirth: parseAnyDate(dob) || '',
+    weightKg: positiveNumber(weight),
+    heightCm: positiveNumber(height),
   };
 }

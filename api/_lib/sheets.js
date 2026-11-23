@@ -202,7 +202,9 @@ export function createSheetStore(config, fetchImpl = fetch, { today = () => toda
     }
     const raw = body.values || [];
     const start = String(raw[0]?.[0] ?? '').trim() === MONTH_HEADERS[0] ? 1 : 0;
-    return { start, rows: raw.slice(start).map(valuesToRow).filter(Boolean) };
+    // A tab made before the weight and height columns existed has a shorter header row.
+    const headerShort = start === 1 && raw[0].length < MONTH_HEADERS.length;
+    return { start, headerShort, rows: raw.slice(start).map(valuesToRow).filter(Boolean) };
   }
 
   const currentMonth = () => monthOf(today());
@@ -262,6 +264,12 @@ export function createSheetStore(config, fetchImpl = fetch, { today = () => toda
     const title = monthTitle(currentMonth());
     const tab = await readMonth(title);
     if (!tab) throw new SheetsError('failed', `The ${title} tab is missing.`);
+    if (tab.headerShort) {
+      await call(`/values/${encodeURIComponent(monthRange(title, `A1:${MONTH_LAST_COLUMN}1`))}?valueInputOption=RAW`, {
+        method: 'PUT',
+        body: JSON.stringify({ values: [MONTH_HEADERS] }),
+      });
+    }
 
     const updates = [];
     const appends = [];

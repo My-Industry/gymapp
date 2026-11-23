@@ -10,6 +10,7 @@ React (Vite) app for registering gym members. Runs entirely in the browser; no s
 - Duplicate phone numbers blocked
 - The Import from Excel page was removed in 1.0.0 (the import rules in `src/lib/members.js` are still there, with tests)
 - WhatsApp consent checkbox
+- Optional date of birth, weight (kg) and height (cm) per member; the app works out the BMI (WHO groups: Underweight, Normal, Overweight, Obese) and shows it on the member's detail card. They are stored in the last three columns of the `Members` sheet (Date of Birth, Weight (kg), Height (cm)). **Update weight & height** on the member card saves the new values into the current month's record (two extra columns at the end of each month tab), and the member's History page shows how they change month by month.
 - Member list with search and Active / Expiring (≤7 days) / Expired status
 
 ## Run locally

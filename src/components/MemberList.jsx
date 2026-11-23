@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  PACKAGE_NAMES, PLAN_NAMES, STATUS_FILTERS, compareIds, formatDate, formatPhone, isListedMember,
+  PACKAGE_NAMES, PLAN_NAMES, STATUS_FILTERS, ageFromDob, bmiCategory, calculateBmi, compareIds, formatDate, formatPhone, isListedMember,
   matchesFilters, memberStatus, todayISO, whatsappLink,
 } from '../lib/members.js';
 import MemberEditForm from './MemberEditForm.jsx';
+import MeasurementsForm from './MeasurementsForm.jsx';
 
 const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
 
@@ -48,10 +49,11 @@ export default function MemberList({ members, onDelete, onUpdate, onShowHistory,
   }, [filterOpen]);
   const [selectedId, setSelectedId] = useState(null);
   const [editing, setEditing] = useState(false);
+  const [measuring, setMeasuring] = useState(false); // the quick "update weight & height" form
   const [justSaved, setJustSaved] = useState(false);
 
-  const openMember = (id) => { setSelectedId(id); setEditing(false); setJustSaved(false); };
-  const backToList = () => { setSelectedId(null); setEditing(false); setJustSaved(false); };
+  const openMember = (id) => { setSelectedId(id); setEditing(false); setMeasuring(false); setJustSaved(false); };
+  const backToList = () => { setSelectedId(null); setEditing(false); setMeasuring(false); setJustSaved(false); };
   const today = todayISO();
   // Plans that ran out in an earlier month drop off this page (they stay in Monthly records).
   const listed = useMemo(() => members.filter((m) => isListedMember(m, today)), [members, today]);
@@ -94,6 +96,9 @@ export default function MemberList({ members, onDelete, onUpdate, onShowHistory,
   const selected = selectedId ? members.find((m) => m.id === selectedId) : null;
   if (selected) {
     const m = { ...selected, status: memberStatus(selected, today) };
+    const bmi = calculateBmi(m.weightKg, m.heightCm);
+    const bmiGroup = bmiCategory(bmi);
+    const age = ageFromDob(m.dateOfBirth, today);
     const confirmDelete = () => {
       if (window.confirm(`Delete ${m.name} (${m.id})? This can't be undone.`)) {
         onDelete(m.id);
@@ -103,6 +108,7 @@ export default function MemberList({ members, onDelete, onUpdate, onShowHistory,
     const save = async (updated) => {
       await onUpdate(updated);
       setEditing(false);
+      setMeasuring(false);
       setJustSaved(true);
     };
 
@@ -117,7 +123,7 @@ export default function MemberList({ members, onDelete, onUpdate, onShowHistory,
           <span className={`badge ${m.status.key}`}>{m.status.label}</span>
         </div>
 
-        {justSaved && !editing && <div className="alert success">Changes saved.</div>}
+        {justSaved && !editing && !measuring && <div className="alert success">Changes saved.</div>}
 
         {editing ? (
           <MemberEditForm
@@ -126,6 +132,8 @@ export default function MemberList({ members, onDelete, onUpdate, onShowHistory,
             onSave={save}
             onCancel={() => setEditing(false)}
           />
+        ) : measuring ? (
+          <MeasurementsForm member={selected} onSave={save} onCancel={() => setMeasuring(false)} />
         ) : (
           <>
         <dl className="facts">
@@ -135,6 +143,16 @@ export default function MemberList({ members, onDelete, onUpdate, onShowHistory,
           <dt>Fee</dt><dd>{inr.format(m.fee)}</dd>
           <dt>Start date</dt><dd>{formatDate(m.startDate)}</dd>
           <dt>Expiry date</dt><dd>{formatDate(m.expiryDate)}</dd>
+          <dt>Date of birth</dt>
+          <dd>{m.dateOfBirth ? `${formatDate(m.dateOfBirth)}${age !== null ? ` (${age} years old)` : ''}` : '—'}</dd>
+          <dt>Weight</dt><dd>{m.weightKg ? `${m.weightKg} kg` : '—'}</dd>
+          <dt>Height</dt><dd>{m.heightCm ? `${m.heightCm} cm` : '—'}</dd>
+          <dt>BMI</dt>
+          <dd>
+            {bmi !== null
+              ? <><b>{bmi}</b> <span className={`badge bmi-${bmiGroup.key}`}>{bmiGroup.label}</span></>
+              : '—'}
+          </dd>
           <dt>WhatsApp messages</dt><dd>{m.whatsappConsent ? 'Agreed' : 'Not agreed'}</dd>
           {m.createdAt && <><dt>Registered on</dt><dd>{formatDate(String(m.createdAt).slice(0, 10))}</dd></>}
         </dl>
@@ -142,6 +160,9 @@ export default function MemberList({ members, onDelete, onUpdate, onShowHistory,
         <div className="form-actions">
           <button className="primary" onClick={() => { setEditing(true); setJustSaved(false); }}>
             Upgrade plan / Edit details
+          </button>
+          <button className="secondary" onClick={() => { setMeasuring(true); setJustSaved(false); }}>
+            Update weight &amp; height
           </button>
           <button className="secondary" onClick={() => onShowHistory(m.id)}>History</button>
           <button className="secondary danger-btn" onClick={confirmDelete}>Delete member</button>

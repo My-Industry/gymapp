@@ -8,6 +8,7 @@ export default function GoogleConnect({
   onUnauthorized,
   title = 'Google Sheets',
   startOpen = false,
+  onHelp, // opens the tutorial; shows "Need help?" at the bottom right of the card
   intro = 'Connect your own Google Sheet and your members, monthly records and history are stored there.',
 }) {
   const [state, setState] = useState({ status: 'loading', info: null, error: '' });
@@ -80,9 +81,7 @@ export default function GoogleConnect({
 
       {state.status === 'ready' && info?.connected && (
         <>
-          <div className="alert success">
-            {justConnected ? 'Connected. ' : ''}Your members are stored in your Google Sheet.
-          </div>
+         
           {error && <div className="alert error" role="alert">{error}</div>}
           <dl className="facts">
             <dt>Service account</dt><dd className="mono">{info.serviceEmail}</dd>
@@ -151,6 +150,12 @@ export default function GoogleConnect({
             </button>
           </div>
         </form>
+      )}
+
+      {onHelp && (
+        <div className="card-help">
+          <button type="button" className="link" onClick={onHelp}>Need help?</button>
+        </div>
       )}
     </div>
   );
