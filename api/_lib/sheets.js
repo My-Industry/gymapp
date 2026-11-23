@@ -57,6 +57,15 @@ export function readSheetConfig(env = process.env) {
   return { ok: true, email, key, sheetId };
 }
 
+/** The separate "server" spreadsheet that holds accounts (GOOGLE_SHEET_ID_server). Same service account. */
+export function readAccountsConfig(env = process.env) {
+  const email = String(env.GOOGLE_SERVICE_ACCOUNT_EMAIL || '').trim();
+  const key = normalizePrivateKey(env.GOOGLE_PRIVATE_KEY);
+  const sheetId = parseSheetId(env.GOOGLE_SHEET_ID_server || env.GOOGLE_SHEET_ID_SERVER);
+  if (!email || !key.includes('PRIVATE KEY') || !sheetId) return { ok: false };
+  return { ok: true, email, key, sheetId };
+}
+
 // ---- Google sign-in (service account JWT) --------------------------------
 
 const b64 = (value) => Buffer.from(typeof value === 'string' ? value : JSON.stringify(value)).toString('base64url');
@@ -79,7 +88,7 @@ function friendlyError(status, body, config) {
       `Google refused access. Share the sheet with ${config.email} and give it Editor access.`, 502);
   }
   if (status === 404) {
-    return new SheetsError('not-found', 'Google Sheet not found. Check GOOGLE_SHEET_ID.', 502);
+    return new SheetsError('not-found', 'Google Sheet not found. Check GOOGLE_SHEET_ID (or GOOGLE_SHEET_ID_server for accounts).', 502);
   }
   if (status === 429) {
     return new SheetsError('busy', 'Google is rate-limiting requests. Wait a few seconds and try again.', 503);
@@ -87,10 +96,12 @@ function friendlyError(status, body, config) {
   return new SheetsError('failed', `Google Sheets error (${status})${detail ? `: ${detail}` : ''}`, 502);
 }
 
-/** `fetchImpl` is injectable so the logic can be tested without the network. */
-export function createSheetStore(config, fetchImpl = fetch, { today = () => todayInIndia() } = {}) {
+/**
+ * Signs in to Google as the service account and talks to ONE spreadsheet.
+ * `fetchImpl` is injectable so the logic can be tested without the network.
+ */
+export function createGoogleClient(config, fetchImpl = fetch) {
   let token = null; // { value, expiresAt }
-  let checkedMonth = null; // "Nov-2026": this server already made sure that tab exists
 
   async function getToken() {
     if (token && token.expiresAt - 60_000 > Date.now()) return token.value;
@@ -120,6 +131,14 @@ export function createSheetStore(config, fetchImpl = fetch, { today = () => toda
     if (!res.ok) throw friendlyError(res.status, body, config);
     return body;
   }
+
+  return { call };
+}
+
+/** `fetchImpl` is injectable so the logic can be tested without the network. */
+export function createSheetStore(config, fetchImpl = fetch, { today = () => todayInIndia() } = {}) {
+  const { call } = createGoogleClient(config, fetchImpl);
+  let checkedMonth = null; // "Nov-2026": this server already made sure that tab exists
 
   /** The tab's numeric id, creating the tab if it doesn't exist yet. */
   async function tabId() {
@@ -420,7 +439,7 @@ export function getStore(env = process.env) {
   const config = readSheetConfig(env);
   if (!config.ok) {
     throw new SheetsError('not-configured',
-      'Google Sheet storage is not set up. Add GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY and GOOGLE_SHEET_ID (see README).', 503);
+      'No Google Sheet is connected yet. Open Profile and connect your Google Sheet.', 503);
   }
   const fingerprint = `${config.email}|${config.sheetId}|${config.key.length}`;
   if (!shared || shared.fingerprint !== fingerprint) shared = { fingerprint, store: createSheetStore(config) };

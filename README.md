@@ -29,9 +29,36 @@ The app is behind a login. Passwords are checked on the server (`api/login.js`, 
 serverless function), never in React. A correct login sets a signed, httpOnly cookie; the app
 asks `/api/me` on load and shows the login screen when there is no valid cookie.
 
-### Creating accounts (Sign up page)
-Accounts live in two environment variables, `AUTH_SECRET` and `AUTH_USERS`
-(`owner:<hash>,frontdesk:<hash>`), because the app has no database yet.
+### Accounts in the "server" Google Sheet (recommended)
+Set `GOOGLE_SHEET_ID_server` to a separate Google Sheet (not the members sheet) and share it with
+the same service account (Editor). Then:
+
+- **Create an account** on the login page saves **username, password hash and email** in that
+  sheet's `Accounts` tab (created for you). It works straight away, locally and on Vercel. Only the
+  hash is stored, never the password. Everyone who signs up is an admin. To make someone staff for now, change the **Role** cell of their row to `staff` (an "Add staff" section is planned).
+- **Forgot password?** asks for the account's email and creates a one-time link (valid 1 hour,
+  stored hashed in a `Password Resets` tab). Sending the email isn't built yet: the one place to add
+  it (nodemailer) is `api/_lib/mailer.js`. Until then, `npm run dev` prints the link in the terminal.
+  Set `APP_URL` (your site's address, e.g. `https://gym.example.com`) so deployed links point to it.
+- `AUTH_SECRET` is still needed (it signs the login cookie). `AUTH_USERS` still works too, and wins
+  if the same username is in both places.
+- Anyone who can open the sign-up page can create an account, and all accounts currently see the
+  same members. Each gym getting its own data is the next step before offering this to other gyms.
+
+### Connecting a gym's own Google Sheet (Profile -> Google Sheets -> Connect)
+An admin opens **Profile**, clicks **Connect**, and fills in the service account email, its private key
+and the link of their Google Sheet (shared with that service account as Editor). The server tests them
+against Google first, then saves them in that person's row of the **Accounts** tab (columns
+*Service Account Email*, *Private Key (encrypted)*, *Sheet Link*). The private key is encrypted
+(AES-256-GCM) with `ENCRYPTION_KEY`, or `AUTH_SECRET` when that isn't set, so reading the accounts sheet
+never reveals a key. If you change that secret, people just connect again.
+
+Once connected, that person's members, monthly records and history are stored in **their** sheet.
+Accounts that haven't connected one keep using the default sheet from `GOOGLE_SHEET_ID`.
+
+### Creating accounts without the sheet (older way)
+If `GOOGLE_SHEET_ID_server` is not set, accounts live in two environment variables, `AUTH_SECRET` and `AUTH_USERS`
+(`owner:<hash>,frontdesk:<hash>`).
 
 **Locally (easiest):** run `npm run dev`, open the app and click **Create an account**. It saves
 the account (password hashed, never stored in plain text) into `.env.local` and you can sign in
@@ -47,13 +74,11 @@ The same line works for accounts you made locally — copy it from `.env.local`.
 Prefer the command line? `npm run hash-password` asks for a password (hidden) and prints the hash.
 
 To remove or change a user, edit `AUTH_USERS` and redeploy (removing a user signs them out).
-Sessions last 7 days. Limits: accounts only become active on Vercel after someone adds them to
-`AUTH_USERS` (no self-service sign-up on the live site, no password reset), and member data is
-still stored per browser — the login protects the app, it doesn't sync data between devices.
-When you want true self-service accounts and shared data, move to Supabase.
+Sessions last 7 days. Limits of this older way: accounts only become active on Vercel after someone
+adds them to `AUTH_USERS`, and there is no password reset.
 
 ### Admins
-The first account in `AUTH_USERS` is the **admin**; everyone else is **staff**. Only admins see the
+The first account (in `AUTH_USERS`, or the first one in the accounts sheet) is the **admin**; everyone else is **staff**. Only admins see the
 **Settings** tab. To choose admins yourself, list them in `AUTH_ADMINS` (e.g. `owner,manager`).
 
 ## Backup setup (Google Sheets / OneDrive)

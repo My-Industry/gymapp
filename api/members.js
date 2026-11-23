@@ -2,16 +2,20 @@
 // POST   /api/members          body { members: [...] }  -> { members, skipped }
 // PUT    /api/members          body { member }          -> { members }   (edit one member)
 // DELETE /api/members          body { id }              -> { members }
-// Every call needs a signed-in session. Data lives in the Google Sheet (see _lib/sheets.js).
+// Every call needs a signed-in session. Data lives in the person's own Google Sheet if they connected one in
+// Profile, otherwise in the default sheet (see _lib/userStore.js and _lib/sheets.js).
 
-import { getSession, readBody, sendJson } from './_lib/auth.js';
-import { SheetsError, cleanIncoming, cleanUpdate, getStore } from './_lib/sheets.js';
+import { readBody, sendJson } from './_lib/auth.js';
+import { getSession } from './_lib/users.js';
+import { SheetsError, cleanIncoming, cleanUpdate } from './_lib/sheets.js';
+import { storeFor } from './_lib/userStore.js';
 
 export default async function handler(req, res) {
-  if (!getSession(req)) return sendJson(res, 401, { error: 'Please sign in again.' });
+  const session = await getSession(req);
+  if (!session) return sendJson(res, 401, { error: 'Please sign in again.' });
 
   try {
-    const store = getStore();
+    const store = await storeFor(session);
 
     if (req.method === 'GET') {
       const members = await store.list();
