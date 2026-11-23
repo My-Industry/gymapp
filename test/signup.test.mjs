@@ -19,11 +19,11 @@ const local = { remoteAddress: '127.0.0.1' };
 const remote = { remoteAddress: '203.0.113.9' };
 
 test('username and password rules', () => {
-  assert.equal(validateNewUser('Owner', 'longenough'), '');
-  assert.equal(validateNewUser('front.desk-1', 'longenough'), '');
-  assert.match(validateNewUser('ab', 'longenough'), /Username/);
-  assert.match(validateNewUser('has space', 'longenough'), /Username/);
-  assert.match(validateNewUser('a:b,c', 'longenough'), /Username/); // would break AUTH_USERS
+  assert.equal(validateNewUser('Owner', 'Long-Enough1!'), '');
+  assert.equal(validateNewUser('front.desk-1', 'Long-Enough1!'), '');
+  assert.match(validateNewUser('ab', 'Long-Enough1!'), /Username/);
+  assert.match(validateNewUser('has space', 'Long-Enough1!'), /Username/);
+  assert.match(validateNewUser('a:b,c', 'Long-Enough1!'), /Username/); // would break AUTH_USERS
   assert.match(validateNewUser('owner', 'short'), /at least 8/);
   assert.match(validateNewUser('owner', undefined), /at least 8/);
   assert.match(validateNewUser('owner', 'x'.repeat(201)), /too long/);
@@ -64,7 +64,7 @@ test('POST /api/signup saves to the env file locally, and the new login works', 
   delete process.env.AUTH_SECRET;
   try {
     const res = mockRes();
-    await signup({ method: 'POST', headers: {}, socket: local, body: { acceptedTerms: true, username: 'Owner', password: 'correct horse' } }, res);
+    await signup({ method: 'POST', headers: {}, socket: local, body: { acceptedTerms: true, username: 'Owner', password: 'Correct-Horse1!' } }, res);
     assert.equal(res.statusCode, 201);
     assert.equal(res.body.saved, true);
     assert.equal(res.body.user, 'owner');
@@ -72,19 +72,19 @@ test('POST /api/signup saves to the env file locally, and the new login works', 
     const saved = readFileSync(file, 'utf8');
     assert.match(saved, /^KEEP=me$/m);
     assert.ok(saved.includes(`AUTH_USERS=${res.body.entry}`));
-    assert.ok(!saved.includes('correct horse')); // only the hash is stored
+    assert.ok(!saved.includes('Correct-Horse1!')); // only the hash is stored
 
     // usable straight away, no restart
     const config = readConfig(process.env);
     assert.equal(config.ok, true);
-    assert.equal(checkLogin(config, 'owner', 'correct horse'), 'owner');
+    assert.equal(checkLogin(config, 'owner', 'Correct-Horse1!'), 'owner');
 
     // second signup with the same name is refused; a different name appends
     const dup = mockRes();
-    await signup({ method: 'POST', headers: {}, socket: local, body: { acceptedTerms: true, username: 'owner', password: 'another pass' } }, dup);
+    await signup({ method: 'POST', headers: {}, socket: local, body: { acceptedTerms: true, username: 'owner', password: 'Another-Pass1!' } }, dup);
     assert.equal(dup.statusCode, 409);
     const next = mockRes();
-    await signup({ method: 'POST', headers: {}, socket: local, body: { acceptedTerms: true, username: 'desk', password: 'front-desk-pw' } }, next);
+    await signup({ method: 'POST', headers: {}, socket: local, body: { acceptedTerms: true, username: 'desk', password: 'Front-Desk-Pw1!' } }, next);
     assert.equal(next.statusCode, 201);
     assert.deepEqual([...parseUsers(process.env.AUTH_USERS).keys()], ['owner', 'desk']);
   } finally {
@@ -98,17 +98,17 @@ test('POST /api/signup saves to the env file locally, and the new login works', 
 test('on the deployed site (or a non-local request) nothing is saved, the entry is returned', async () => {
   delete process.env.AUTH_ENV_FILE;
   const res = mockRes();
-  await signup({ method: 'POST', headers: {}, socket: remote, body: { acceptedTerms: true, username: 'newstaff', password: 'staff-pass-1' } }, res);
+  await signup({ method: 'POST', headers: {}, socket: remote, body: { acceptedTerms: true, username: 'newstaff', password: 'Staff-Pass-1!' } }, res);
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.saved, false);
   const [name, hash] = res.body.entry.split(':');
   assert.equal(name, 'newstaff');
-  assert.equal(verifyPassword('staff-pass-1', hash), true);
+  assert.equal(verifyPassword('Staff-Pass-1!', hash), true);
 
   // a remote request is refused a file write even if AUTH_ENV_FILE is set
   process.env.AUTH_ENV_FILE = path.join(tmpdir(), 'should-not-be-written.env');
   const remoteRes = mockRes();
-  await signup({ method: 'POST', headers: {}, socket: remote, body: { acceptedTerms: true, username: 'newstaff', password: 'staff-pass-1' } }, remoteRes);
+  await signup({ method: 'POST', headers: {}, socket: remote, body: { acceptedTerms: true, username: 'newstaff', password: 'Staff-Pass-1!' } }, remoteRes);
   delete process.env.AUTH_ENV_FILE;
   assert.equal(remoteRes.body.saved, false);
 });
@@ -117,11 +117,11 @@ test('signup validates input, rejects taken names and other methods', async () =
   process.env.AUTH_USERS = 'owner:scrypt.a.b';
   try {
     const bad = mockRes();
-    await signup({ method: 'POST', headers: {}, socket: remote, body: { acceptedTerms: true, username: 'x', password: 'longenough' } }, bad);
+    await signup({ method: 'POST', headers: {}, socket: remote, body: { acceptedTerms: true, username: 'x', password: 'Long-Enough1!' } }, bad);
     assert.equal(bad.statusCode, 400);
 
     const taken = mockRes();
-    await signup({ method: 'POST', headers: {}, socket: remote, body: { acceptedTerms: true, username: 'OWNER', password: 'longenough' } }, taken);
+    await signup({ method: 'POST', headers: {}, socket: remote, body: { acceptedTerms: true, username: 'OWNER', password: 'Long-Enough1!' } }, taken);
     assert.equal(taken.statusCode, 409);
 
     const get = mockRes();

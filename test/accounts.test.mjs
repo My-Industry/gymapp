@@ -56,7 +56,7 @@ async function withServerSheet(fn, { authUsers = '' } = {}) {
   }
 }
 
-const newAccount = (over = {}) => ({ acceptedTerms: true, username: 'Owner', password: 'correct horse', email: 'Owner@Gmail.com', ...over });
+const newAccount = (over = {}) => ({ acceptedTerms: true, username: 'Owner', password: 'Correct-Horse1!', email: 'Owner@Gmail.com', ...over });
 
 test('email validation', () => {
   assert.deepEqual(validateEmail(' Owner@Gmail.com '), { email: 'owner@gmail.com' });
@@ -86,8 +86,8 @@ test('sign up saves username, password hash and email in the Accounts tab', asyn
     assert.equal(username, 'owner');
     assert.equal(email, 'owner@gmail.com');
     assert.equal(role, 'admin'); // the very first account
-    assert.ok(!JSON.stringify(row).includes('correct horse')); // never stored in plain text
-    assert.equal(verifyPassword('correct horse', hash), true);
+    assert.ok(!JSON.stringify(row).includes('Correct-Horse1!')); // never stored in plain text
+    assert.equal(verifyPassword('Correct-Horse1!', hash), true);
     assert.ok(!Number.isNaN(Date.parse(createdAt)));
   });
 });
@@ -124,10 +124,10 @@ test('sign up needs AUTH_SECRET, otherwise nobody could sign in afterwards', asy
 test('a sheet account can log in, and /api/me reports the role written in the sheet', async () => {
   await withServerSheet(async ({ fake }) => {
     await post(signup, newAccount());
-    await post(signup, newAccount({ username: 'desk', email: 'desk@gmail.com', password: 'front-desk-pw' }));
+    await post(signup, newAccount({ username: 'desk', email: 'desk@gmail.com', password: 'Front-Desk-Pw1!' }));
     fake.state.tabs.get('Accounts')[2][3] = 'staff'; // the owner edits the Role cell by hand
 
-    const ok = await post(login, { username: 'Owner', password: 'correct horse' });
+    const ok = await post(login, { username: 'Owner', password: 'Correct-Horse1!' });
     assert.equal(ok.statusCode, 200);
     assert.deepEqual(ok.body, { user: 'owner', role: 'admin' });
     const cookie = ok.headers['set-cookie'].split(';')[0];
@@ -137,9 +137,9 @@ test('a sheet account can log in, and /api/me reports the role written in the sh
     await me({ method: 'GET', headers: { cookie } }, meRes);
     assert.deepEqual(meRes.body, { user: 'owner', role: 'admin' });
 
-    assert.deepEqual((await post(login, { username: 'desk', password: 'front-desk-pw' })).body, { user: 'desk', role: 'staff' });
+    assert.deepEqual((await post(login, { username: 'desk', password: 'Front-Desk-Pw1!' })).body, { user: 'desk', role: 'staff' });
     assert.equal((await post(login, { username: 'owner', password: 'wrong' })).statusCode, 401);
-    assert.equal((await post(login, { username: 'ghost', password: 'correct horse' })).statusCode, 401);
+    assert.equal((await post(login, { username: 'ghost', password: 'Correct-Horse1!' })).statusCode, 401);
   });
 });
 
@@ -151,14 +151,14 @@ test('accounts in AUTH_USERS still work next to the sheet, and win on a username
     assert.equal((await post(signup, newAccount({ username: 'boss' }))).statusCode, 409);
     // a new sign-up is an admin even when an AUTH_USERS admin already exists
     await post(signup, newAccount());
-    assert.equal((await post(login, { username: 'owner', password: 'correct horse' })).body.role, 'admin');
+    assert.equal((await post(login, { username: 'owner', password: 'Correct-Horse1!' })).body.role, 'admin');
   }, { authUsers: `boss:${hashPassword('env-password')}` });
 });
 
 test('a removed account is signed out once the list refreshes', async () => {
   await withServerSheet(async ({ fake, store, clock }) => {
     await post(signup, newAccount());
-    const cookie = (await post(login, { username: 'owner', password: 'correct horse' })).headers['set-cookie'].split(';')[0];
+    const cookie = (await post(login, { username: 'owner', password: 'Correct-Horse1!' })).headers['set-cookie'].split(';')[0];
     fake.state.tabs.get('Accounts').splice(1, 1); // the owner deletes the row in Google Sheets
     clock.now += 60_000; // past the short cache
     const meRes = mockRes();
@@ -205,13 +205,13 @@ test('reset link: sets a new password once, rejects reuse, expiry and junk', asy
     assert.ok(!JSON.stringify(fake.state.tabs.get('Password Resets')).includes(token));
 
     assert.equal((await post(reset, { token, password: 'short' })).statusCode, 400);
-    assert.equal((await post(reset, { token: 'x'.repeat(43), password: 'a-new-password' })).statusCode, 400);
+    assert.equal((await post(reset, { token: 'x'.repeat(43), password: 'A-New-Password1!' })).statusCode, 400);
 
-    const done = await post(reset, { token, password: 'a-new-password' });
+    const done = await post(reset, { token, password: 'A-New-Password1!' });
     assert.equal(done.statusCode, 200);
-    assert.equal((await post(login, { username: 'owner', password: 'a-new-password' })).statusCode, 200);
-    assert.equal((await post(login, { username: 'owner', password: 'correct horse' })).statusCode, 401);
-    assert.equal((await post(reset, { token, password: 'another-password' })).statusCode, 400); // used already
+    assert.equal((await post(login, { username: 'owner', password: 'A-New-Password1!' })).statusCode, 200);
+    assert.equal((await post(login, { username: 'owner', password: 'Correct-Horse1!' })).statusCode, 401);
+    assert.equal((await post(reset, { token, password: 'Another-Password1!' })).statusCode, 400); // used already
 
     // an old link stops working after an hour
     logged.length = 0;
@@ -220,7 +220,7 @@ test('reset link: sets a new password once, rejects reuse, expiry and junk', asy
     try { await post(forgot, { email: 'owner@gmail.com' }, { host: 'localhost:5173' }); } finally { console.log = realLog; }
     const stale = /\?reset=([\w-]+)/.exec(logged.join('\n'))[1];
     clock.now += 2 * 60 * 60_000;
-    assert.equal((await post(reset, { token: stale, password: 'yet-another-pw' })).statusCode, 400);
+    assert.equal((await post(reset, { token: stale, password: 'Yet-Another-Pw1!' })).statusCode, 400);
   });
 });
 
@@ -234,7 +234,7 @@ test('forgot / reset say so when the accounts sheet is not set up', async () => 
   setAccountStoreForTests(null);
   try {
     assert.equal((await post(forgot, { email: 'a@gmail.com' })).statusCode, 503);
-    assert.equal((await post(reset, { token: 'x'.repeat(43), password: 'a-new-password' })).statusCode, 503);
+    assert.equal((await post(reset, { token: 'x'.repeat(43), password: 'A-New-Password1!' })).statusCode, 503);
   } finally {
     setAccountStoreForTests(undefined);
   }

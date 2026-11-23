@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { signup } from '../lib/auth.js';
 import TermsPage from './TermsPage.jsx';
+import PasswordStrength from './PasswordStrength.jsx';
+import { checkPassword } from '../lib/password.js';
 
 export default function SignUp({ onSignedUp, onBack }) {
   const [agreed, setAgreed] = useState(false); // accepted the Terms and Conditions
@@ -15,12 +17,17 @@ export default function SignUp({ onSignedUp, onBack }) {
   const [copied, setCopied] = useState(false);
 
   const mismatch = confirm.length > 0 && confirm !== password;
+  const strongEnough = checkPassword(password).ok;
 
   async function submit(e) {
     e.preventDefault();
     if (busy) return;
     if (password !== confirm) {
       setError("The two passwords don't match.");
+      return;
+    }
+    if (!strongEnough) {
+      setError('Please choose a stronger password. It needs every item on the checklist.');
       return;
     }
     if (!agreed) {
@@ -146,8 +153,8 @@ export default function SignUp({ onSignedUp, onBack }) {
             minLength={8}
             required
           />
-          <span className="hint muted">At least 8 characters</span>
         </label>
+        <PasswordStrength password={password} />
         <label>
           Confirm password
           <input
@@ -170,7 +177,7 @@ export default function SignUp({ onSignedUp, onBack }) {
           </span>
         </label>
 
-        <button className="primary" type="submit" disabled={busy || !agreed || !username || !email || !password || !confirm || mismatch}>
+        <button className="primary" type="submit" disabled={busy || !agreed || !strongEnough || !username || !email || !password || !confirm || mismatch}>
           {busy ? 'Creating…' : 'Create account'}
         </button>
         <button type="button" className="link center" onClick={onBack}>

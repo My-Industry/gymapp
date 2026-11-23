@@ -3,7 +3,7 @@
 
 import { hashPassword, readBody, sendJson } from './_lib/auth.js';
 import { getAccountStore } from './_lib/accounts.js';
-import { MAX_PASSWORD, MIN_PASSWORD } from './_lib/signup.js';
+import { passwordProblem } from '../src/lib/password.js';
 import { hashToken } from './_lib/resetToken.js';
 
 const BAD_LINK = 'This reset link is invalid or has expired. Please request a new one.';
@@ -19,8 +19,8 @@ export default async function handler(req, res) {
 
   const { token, password } = readBody(req);
   const pw = String(password ?? '');
-  if (pw.length < MIN_PASSWORD) return sendJson(res, 400, { error: `Password must be at least ${MIN_PASSWORD} characters.` });
-  if (pw.length > MAX_PASSWORD) return sendJson(res, 400, { error: 'Password is too long.' });
+  const weak = passwordProblem(pw);
+  if (weak) return sendJson(res, 400, { error: weak });
   if (typeof token !== 'string' || token.length < 20 || token.length > 200) return sendJson(res, 400, { error: BAD_LINK });
 
   try {

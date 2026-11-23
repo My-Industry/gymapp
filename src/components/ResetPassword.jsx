@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { resetPassword } from '../lib/auth.js';
+import { checkPassword } from '../lib/password.js';
+import PasswordStrength from './PasswordStrength.jsx';
 
 // Step 2 of a password reset: the page the emailed link (/?reset=<token>) opens.
 export default function ResetPassword({ token, onDone, onBack }) {
@@ -8,6 +10,7 @@ export default function ResetPassword({ token, onDone, onBack }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const mismatch = confirm.length > 0 && confirm !== password;
+  const strongEnough = checkPassword(password).ok;
 
   async function submit(e) {
     e.preventDefault();
@@ -34,15 +37,15 @@ export default function ResetPassword({ token, onDone, onBack }) {
         {error && <div className="alert error" role="alert">{error}</div>}
         <label>New password
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" minLength={8} autoFocus required />
-          <span className="hint muted">At least 8 characters</span>
         </label>
+        <PasswordStrength password={password} />
         <label>
           Confirm new password
           <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" required />
           {mismatch && <span className="hint bad">Passwords don't match</span>}
         </label>
 
-        <button className="primary" type="submit" disabled={busy || !password || !confirm || mismatch}>
+        <button className="primary" type="submit" disabled={busy || !strongEnough || !confirm || mismatch}>
           {busy ? 'Saving…' : 'Change password'}
         </button>
         <button type="button" className="link center" onClick={onBack}>Back to sign in</button>

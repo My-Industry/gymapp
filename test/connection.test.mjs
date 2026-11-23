@@ -43,7 +43,7 @@ const connectBody = (over = {}) => ({
   sheetLink: SHEET_LINK,
   ...over,
 });
-const newAccount = (over = {}) => ({ acceptedTerms: true, username: 'owner', password: 'correct horse', email: 'owner@gmail.com', ...over });
+const newAccount = (over = {}) => ({ acceptedTerms: true, username: 'owner', password: 'Correct-Horse1!', email: 'owner@gmail.com', ...over });
 
 async function withServerSheet(fn, { authUsers = '' } = {}) {
   const fake = makeFakeGoogle(config, { hasTab: false });
@@ -83,7 +83,7 @@ test('secrets are encrypted, and only the right secret opens them', () => {
 test('Connect: validates, tests the sheet, saves the key encrypted; members then use that sheet', async () => {
   await withServerSheet(async ({ fake }) => {
     await send(signup, 'POST', newAccount());
-    const cookie = await signIn('owner', 'correct horse');
+    const cookie = await signIn('owner', 'Correct-Horse1!');
     hooks.checkSheet = async () => 'My Gym Sheet';
 
     assert.deepEqual((await send(connection, 'GET', undefined, cookie)).body, { connected: false });
@@ -115,7 +115,7 @@ test('Connect: validates, tests the sheet, saves the key encrypted; members then
     assert.equal(row[7], SHEET_LINK);
     assert.ok(!row[6].includes('PRIVATE') && !row[6].includes('BEGIN')); // encrypted, not plain text
     assert.equal(decryptSecret(row[6], SECRET), privateKey); // the server can read it back
-    assert.equal(verifyPassword('correct horse', row[1]), true); // the password hash survived the update
+    assert.equal(verifyPassword('Correct-Horse1!', row[1]), true); // the password hash survived the update
 
     const got = await send(connection, 'GET', undefined, cookie);
     assert.equal(got.body.connected, true);
@@ -131,7 +131,7 @@ test('Connect: validates, tests the sheet, saves the key encrypted; members then
     // disconnect: connection cleared, password kept, back to the default sheet (missing here)
     assert.deepEqual((await send(connection, 'DELETE', undefined, cookie)).body, { connected: false });
     assert.deepEqual(fake.state.tabs.get('Accounts')[1].slice(5), ['', '', '']);
-    assert.equal(verifyPassword('correct horse', fake.state.tabs.get('Accounts')[1][1]), true);
+    assert.equal(verifyPassword('Correct-Horse1!', fake.state.tabs.get('Accounts')[1][1]), true);
     await assert.rejects(storeFor({ user: 'owner', role: 'admin' }), (e) => e.code === 'not-configured');
   });
 });
@@ -139,7 +139,7 @@ test('Connect: validates, tests the sheet, saves the key encrypted; members then
 test('a connection that can no longer be decrypted asks the user to connect again', async () => {
   await withServerSheet(async () => {
     await send(signup, 'POST', newAccount());
-    const cookie = await signIn('owner', 'correct horse');
+    const cookie = await signIn('owner', 'Correct-Horse1!');
     hooks.checkSheet = async () => 'Sheet';
     await send(connection, 'POST', connectBody(), cookie);
     process.env.AUTH_SECRET = 'y'.repeat(40); // the server secret changed since the key was saved
@@ -150,9 +150,9 @@ test('a connection that can no longer be decrypted asks the user to connect agai
 test('Connect is for admins only', async () => {
   await withServerSheet(async ({ fake }) => {
     await send(signup, 'POST', newAccount());
-    await send(signup, 'POST', newAccount({ username: 'desk', email: 'desk@gmail.com', password: 'front-desk-pw' }));
+    await send(signup, 'POST', newAccount({ username: 'desk', email: 'desk@gmail.com', password: 'Front-Desk-Pw1!' }));
     fake.state.tabs.get('Accounts')[2][3] = 'staff'; // staff accounts are set by hand in the sheet for now
-    const cookie = await signIn('desk', 'front-desk-pw');
+    const cookie = await signIn('desk', 'Front-Desk-Pw1!');
     assert.equal((await send(connection, 'GET', undefined, cookie)).statusCode, 403);
     assert.equal((await send(connection, 'POST', connectBody(), cookie)).statusCode, 403);
   });

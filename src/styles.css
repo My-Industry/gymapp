@@ -295,6 +295,15 @@ textarea.entry {
 .version-btn { font-size: .8rem; color: var(--muted); text-decoration: underline dotted; }
 .version-btn:hover { color: var(--text); }
 
+/* Password strength bars (Sign up, Reset password): grey until a rule is met, then red / yellow / green. */
+.pw-strength { display: grid; gap: .4rem; margin-top: -.25rem; }
+.pw-bars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.pw-bars span { height: 6px; border-radius: 3px; background: #e3e6ea; transition: background-color .2s; }
+.pw-bars span.on.red { background: #d93025; }
+.pw-bars span.on.yellow { background: #f2b600; }
+.pw-bars span.on.green { background: #1e9e55; }
+.pw-strength .hint { margin: 0; }
+
 /* Sign up: terms checkbox, and the Terms and Conditions screen. */
 .terms-check { align-items: flex-start; }
 .terms-link { font-size: inherit; color: var(--accent-dark); text-decoration: underline; padding: 0; }

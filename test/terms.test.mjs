@@ -33,7 +33,7 @@ test('sign up is refused unless the Terms and Conditions were accepted', async (
   setAccountStoreForTests(null); // no accounts sheet: the older sign-up path
   delete process.env.AUTH_ENV_FILE;
   try {
-    const base = { username: 'newowner', password: 'long-enough-pw', email: 'new@gmail.com' };
+    const base = { username: 'newowner', password: 'Long-Enough-Pw1!', email: 'new@gmail.com' };
     for (const acceptedTerms of [undefined, false, 'true', 1, null]) {
       const res = await attempt({ ...base, acceptedTerms });
       assert.equal(res.statusCode, 400, `acceptedTerms=${String(acceptedTerms)}`);

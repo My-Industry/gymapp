@@ -5,10 +5,10 @@
 
 import { randomBytes } from 'node:crypto';
 import { normalizeUsername, parseUsers } from './auth.js';
+import { MAX_PASSWORD, MIN_PASSWORD, passwordProblem } from '../../src/lib/password.js';
 
+export { MAX_PASSWORD, MIN_PASSWORD };
 export const USERNAME_RULE = /^[a-z0-9][a-z0-9._-]{2,31}$/;
-export const MIN_PASSWORD = 8;
-export const MAX_PASSWORD = 200;
 
 /** Returns an error message, or '' if the details are fine. */
 export function validateNewUser(username, password) {
@@ -16,10 +16,7 @@ export function validateNewUser(username, password) {
   if (!USERNAME_RULE.test(name)) {
     return 'Username must be 3–32 characters: letters, numbers, dot, dash or underscore.';
   }
-  const pw = String(password ?? '');
-  if (pw.length < MIN_PASSWORD) return `Password must be at least ${MIN_PASSWORD} characters.`;
-  if (pw.length > MAX_PASSWORD) return 'Password is too long.';
-  return '';
+  return passwordProblem(password); // at least 8 characters, upper and lower case, a special character
 }
 
 export function newSecret() {
