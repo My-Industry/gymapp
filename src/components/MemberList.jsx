@@ -85,7 +85,7 @@ export default function MemberList({ members, onDelete, onUpdate, onShowHistory,
     return (
       <section className="card empty">
         <h2>No members yet</h2>
-        <p>Register your first member, or import your existing list from Excel.</p>
+        <p>Register your first member to get started.</p>
         <button className="primary" onClick={onAddClick}>Add member</button>
       </section>
     );

@@ -43,7 +43,7 @@ const connectBody = (over = {}) => ({
   sheetLink: SHEET_LINK,
   ...over,
 });
-const newAccount = (over = {}) => ({ username: 'owner', password: 'correct horse', email: 'owner@gmail.com', ...over });
+const newAccount = (over = {}) => ({ acceptedTerms: true, username: 'owner', password: 'correct horse', email: 'owner@gmail.com', ...over });
 
 async function withServerSheet(fn, { authUsers = '' } = {}) {
   const fake = makeFakeGoogle(config, { hasTab: false });

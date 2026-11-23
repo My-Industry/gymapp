@@ -38,11 +38,11 @@ export async function login(username, password) {
  *  storage 'sheet' -> the account is saved in the accounts sheet and works right away.
  *  Otherwise (no accounts sheet): saved=true -> written to .env.local (local dev);
  *  saved=false -> deployed site: `entry` must be added to AUTH_USERS in Vercel. */
-export async function signup(username, password, email) {
+export async function signup(username, password, email, acceptedTerms) {
   try {
     const { status, data } = await call('/api/signup', {
       method: 'POST',
-      body: JSON.stringify({ username, password, email }),
+      body: JSON.stringify({ username, password, email, acceptedTerms }),
     });
     if ((status === 200 || status === 201) && data.user) {
       return { user: data.user, saved: !!data.saved, storage: data.storage, entry: data.entry };

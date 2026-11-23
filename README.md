@@ -7,8 +7,8 @@ React (Vite) app for registering gym members. Runs entirely in the browser; no s
 - Auto-generated member IDs: `GYM-001`, `GYM-002`, … `GYM-999`, then `GYM-1000` and on
 - Phone numbers cleaned automatically (`098765 43210` → `+91 98765 43210`)
 - Expiry calculated automatically with correct month-ends (31 Jan + 1 month = 28 Feb)
-- Duplicate phone numbers blocked (in the form and during import)
-- Bulk import from Excel (.xlsx / .xls / .csv) with a preview, error list and downloadable template
+- Duplicate phone numbers blocked
+- The Import from Excel page was removed in 1.0.0 (the import rules in `src/lib/members.js` are still there, with tests)
 - WhatsApp consent checkbox
 - Member list with search and Active / Expiring (≤7 days) / Expired status
 
@@ -18,6 +18,15 @@ npm install
 npm run dev      # http://localhost:5173
 npm test         # tests for phone, date, ID, duplicate and import rules
 ```
+
+## Versions and release notes
+The version number and the release notes live in code, in **`src/lib/version.js`**, and are edited by hand.
+People see them in the app: click the profile icon, then the version (e.g. `v1.0.0`) at the bottom left of the card.
+
+To ship a new version:
+1. Change `VERSION` (patch `1.0.0 → 1.0.1` for fixes, minor `1.1.0` for new features, major `2.0.0` for big changes).
+2. Add an entry at the **top** of `RELEASES` with that version, the date (`YYYY-MM-DD`), a short title and notes.
+3. Run `npm test`. It fails if `VERSION` and the newest release don't match, or a release has no notes.
 
 ## Deploy to Vercel
 1. Push this folder to a GitHub repo.
@@ -115,7 +124,6 @@ How it behaves:
   the header shows **Reconnect backup** (one click). Changes made meanwhile are included in the next backup.
 - **OneDrive** writes one `.xlsx` (default `Gym Manager/Members.xlsx`), replacing it each time. Microsoft renews the
   sign-in quietly, so reconnecting is rare.
-- The sheet's columns match the Excel import template, so a backup can be re-imported with **Import from Excel**.
 - Disconnecting stops backups; it never deletes your sheet or file.
 
 ## Storing members in Google Sheets
@@ -155,9 +163,9 @@ every save takes about a second. If you outgrow it, replace `src/lib/storage.js`
 ```
 src/lib/members.js        all business rules (IDs, phone, expiry, validation, import)
 src/lib/storage.js        load/save members
+src/lib/version.js        app version + release notes (edit by hand when you release)
 src/components/MemberForm.jsx
 src/components/MemberList.jsx
-src/components/BulkImport.jsx
 src/components/Login.jsx, SignUp.jsx
 src/components/Settings.jsx   admin-only: connect Google / OneDrive backup
 src/lib/auth.js           browser side: session check, login, logout

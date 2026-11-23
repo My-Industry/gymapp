@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { signup } from '../lib/auth.js';
+import TermsPage from './TermsPage.jsx';
 
 export default function SignUp({ onSignedUp, onBack }) {
+  const [agreed, setAgreed] = useState(false); // accepted the Terms and Conditions
+  const [showTerms, setShowTerms] = useState(false); // reading them (the form below keeps what was typed)
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,9 +23,13 @@ export default function SignUp({ onSignedUp, onBack }) {
       setError("The two passwords don't match.");
       return;
     }
+    if (!agreed) {
+      setError('Please accept the Terms and Conditions to create an account.');
+      return;
+    }
     setBusy(true);
     setError('');
-    const r = await signup(username, password, email);
+    const r = await signup(username, password, email, agreed);
     setBusy(false);
     setPassword('');
     setConfirm('');
@@ -38,6 +45,8 @@ export default function SignUp({ onSignedUp, onBack }) {
       setCopied(false);
     }
   }
+
+  if (showTerms) return <TermsPage onBack={() => setShowTerms(false)} />;
 
   if (result?.storage === 'sheet') {
     return (
@@ -151,7 +160,17 @@ export default function SignUp({ onSignedUp, onBack }) {
           {mismatch && <span className="hint bad">Passwords don't match</span>}
         </label>
 
-        <button className="primary" type="submit" disabled={busy || !username || !email || !password || !confirm || mismatch}>
+        <label className="check terms-check">
+          <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+          <span>
+            I agree to the{' '}
+            <button type="button" className="link terms-link" onClick={() => setShowTerms(true)}>
+              Terms and Conditions
+            </button>
+          </span>
+        </label>
+
+        <button className="primary" type="submit" disabled={busy || !agreed || !username || !email || !password || !confirm || mismatch}>
           {busy ? 'Creating…' : 'Create account'}
         </button>
         <button type="button" className="link center" onClick={onBack}>

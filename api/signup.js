@@ -15,9 +15,12 @@ export default async function handler(req, res) {
     return sendJson(res, 405, { error: 'Method not allowed' });
   }
 
-  const { username, password, email } = readBody(req);
+  const { username, password, email, acceptedTerms } = readBody(req);
   const problem = validateNewUser(username, password);
   if (problem) return sendJson(res, 400, { error: problem });
+  if (acceptedTerms !== true) {
+    return sendJson(res, 400, { error: 'Please accept the Terms and Conditions to create an account.' });
+  }
 
   const name = normalizeUsername(username);
   if (parseUsers(process.env.AUTH_USERS).has(name)) {

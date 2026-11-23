@@ -265,6 +265,82 @@ textarea.entry {
 .coming-soon { opacity: .75; }
 .coming-soon button:disabled { cursor: not-allowed; opacity: .6; }
 
+/* Desktop profile dropdown: user, role, Settings, then version (left) and Sign out (right). */
+.profile-menu-wrap { position: relative; }
+.profile-menu {
+  position: absolute; top: calc(100% + .5rem); right: 0; z-index: 30; width: 270px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .16); padding: .5rem; display: grid; gap: .25rem;
+}
+.profile-menu-head { display: flex; align-items: center; gap: .75rem; padding: .6rem .5rem .75rem; }
+.profile-avatar {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 48px; height: 48px; border-radius: 50%; background: #e9ebef; color: var(--muted);
+}
+.profile-menu-who { display: grid; gap: .2rem; min-width: 0; justify-items: start; }
+.profile-menu-who b { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1rem; }
+.role-badge {
+  padding: .1rem .55rem; border-radius: 999px; font-size: .75rem; font-weight: 600;
+  background: #fdeee9; color: var(--accent-dark);
+}
+.profile-menu-item {
+  display: flex; align-items: center; gap: .65rem; width: 100%; text-align: left;
+  padding: .65rem .6rem; border: 0; background: transparent; color: var(--text); font-size: .95rem; border-radius: 8px;
+}
+.profile-menu-item:hover { background: #f0f1f4; }
+.profile-menu-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+  border-top: 1px solid var(--border); margin-top: .25rem; padding: .6rem .5rem .2rem;
+}
+.version-btn { font-size: .8rem; color: var(--muted); text-decoration: underline dotted; }
+.version-btn:hover { color: var(--text); }
+
+/* Sign up: terms checkbox, and the Terms and Conditions screen. */
+.terms-check { align-items: flex-start; }
+.terms-link { font-size: inherit; color: var(--accent-dark); text-decoration: underline; padding: 0; }
+.terms-wrap { align-items: start; }
+.terms-card { width: 100%; max-width: 720px; margin: 0 auto; padding: 1.5rem; }
+.terms-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: .75rem; }
+.terms-head h1 { margin: 0 0 .2rem; font-size: 1.4rem; }
+.terms-section h2 { font-size: 1.05rem; margin: 1.25rem 0 .4rem; }
+.terms-section p { margin: 0 0 .5rem; line-height: 1.6; }
+.terms-foot { margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+@media (max-width: 720px) {
+  .terms-card { padding: 1rem; }
+  .terms-foot .primary { width: 100%; }
+}
+
+/* About page. */
+.about .card p { margin: 0 0 .5rem; line-height: 1.55; }
+.about-list { margin: .25rem 0 0; padding-left: 1.2rem; display: grid; gap: .6rem; line-height: 1.5; }
+.about-version { text-align: center; }
+.about-content { display: grid; gap: 1rem; }
+.lang-toggle {
+  display: inline-flex; flex-wrap: wrap; align-self: flex-start; padding: .2rem; gap: .2rem;
+  background: #e9ebef; border-radius: 10px;
+}
+.lang-toggle button {
+  border: 0; background: transparent; color: var(--muted); padding: .4rem 1rem;
+  font-size: .9rem; border-radius: 8px;
+}
+.lang-toggle button.active { background: var(--card); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, .1); }
+
+/* Release notes window. */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 50; background: rgba(20, 22, 26, .45);
+  display: flex; align-items: center; justify-content: center; padding: 1rem;
+}
+.modal {
+  background: var(--card); border-radius: 14px; width: min(520px, 100%); max-height: 85vh;
+  display: flex; flex-direction: column; padding: 1.25rem; box-shadow: 0 20px 50px rgba(0, 0, 0, .3);
+}
+.modal-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.modal-head h2 { margin: 0; }
+.modal-body { overflow-y: auto; margin-top: .5rem; }
+.release + .release { border-top: 1px solid var(--border); margin-top: 1rem; padding-top: 1rem; }
+.release h3 { margin: 0; display: flex; align-items: center; gap: .5rem; }
+.release ul { margin: .5rem 0 0; padding-left: 1.1rem; display: grid; gap: .4rem; font-size: .92rem; }
+
 /* Connect-your-Google-Sheet card (Profile page, and the prompt when no sheet is connected yet). */
 .connect-card { width: 100%; box-sizing: border-box; }
 .connect-card textarea.entry { min-height: 9rem; resize: vertical; }

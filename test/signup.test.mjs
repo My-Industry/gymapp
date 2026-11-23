@@ -64,7 +64,7 @@ test('POST /api/signup saves to the env file locally, and the new login works', 
   delete process.env.AUTH_SECRET;
   try {
     const res = mockRes();
-    await signup({ method: 'POST', headers: {}, socket: local, body: { username: 'Owner', password: 'correct horse' } }, res);
+    await signup({ method: 'POST', headers: {}, socket: local, body: { acceptedTerms: true, username: 'Owner', password: 'correct horse' } }, res);
     assert.equal(res.statusCode, 201);
     assert.equal(res.body.saved, true);
     assert.equal(res.body.user, 'owner');
@@ -81,10 +81,10 @@ test('POST /api/signup saves to the env file locally, and the new login works', 
 
     // second signup with the same name is refused; a different name appends
     const dup = mockRes();
-    await signup({ method: 'POST', headers: {}, socket: local, body: { username: 'owner', password: 'another pass' } }, dup);
+    await signup({ method: 'POST', headers: {}, socket: local, body: { acceptedTerms: true, username: 'owner', password: 'another pass' } }, dup);
     assert.equal(dup.statusCode, 409);
     const next = mockRes();
-    await signup({ method: 'POST', headers: {}, socket: local, body: { username: 'desk', password: 'front-desk-pw' } }, next);
+    await signup({ method: 'POST', headers: {}, socket: local, body: { acceptedTerms: true, username: 'desk', password: 'front-desk-pw' } }, next);
     assert.equal(next.statusCode, 201);
     assert.deepEqual([...parseUsers(process.env.AUTH_USERS).keys()], ['owner', 'desk']);
   } finally {
@@ -98,7 +98,7 @@ test('POST /api/signup saves to the env file locally, and the new login works', 
 test('on the deployed site (or a non-local request) nothing is saved, the entry is returned', async () => {
   delete process.env.AUTH_ENV_FILE;
   const res = mockRes();
-  await signup({ method: 'POST', headers: {}, socket: remote, body: { username: 'newstaff', password: 'staff-pass-1' } }, res);
+  await signup({ method: 'POST', headers: {}, socket: remote, body: { acceptedTerms: true, username: 'newstaff', password: 'staff-pass-1' } }, res);
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.saved, false);
   const [name, hash] = res.body.entry.split(':');
@@ -108,7 +108,7 @@ test('on the deployed site (or a non-local request) nothing is saved, the entry 
   // a remote request is refused a file write even if AUTH_ENV_FILE is set
   process.env.AUTH_ENV_FILE = path.join(tmpdir(), 'should-not-be-written.env');
   const remoteRes = mockRes();
-  await signup({ method: 'POST', headers: {}, socket: remote, body: { username: 'newstaff', password: 'staff-pass-1' } }, remoteRes);
+  await signup({ method: 'POST', headers: {}, socket: remote, body: { acceptedTerms: true, username: 'newstaff', password: 'staff-pass-1' } }, remoteRes);
   delete process.env.AUTH_ENV_FILE;
   assert.equal(remoteRes.body.saved, false);
 });
@@ -117,11 +117,11 @@ test('signup validates input, rejects taken names and other methods', async () =
   process.env.AUTH_USERS = 'owner:scrypt.a.b';
   try {
     const bad = mockRes();
-    await signup({ method: 'POST', headers: {}, socket: remote, body: { username: 'x', password: 'longenough' } }, bad);
+    await signup({ method: 'POST', headers: {}, socket: remote, body: { acceptedTerms: true, username: 'x', password: 'longenough' } }, bad);
     assert.equal(bad.statusCode, 400);
 
     const taken = mockRes();
-    await signup({ method: 'POST', headers: {}, socket: remote, body: { username: 'OWNER', password: 'longenough' } }, taken);
+    await signup({ method: 'POST', headers: {}, socket: remote, body: { acceptedTerms: true, username: 'OWNER', password: 'longenough' } }, taken);
     assert.equal(taken.statusCode, 409);
 
     const get = mockRes();

@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import MemberForm from './components/MemberForm.jsx';
 import MemberList from './components/MemberList.jsx';
-import BulkImport from './components/BulkImport.jsx';
 import Settings from './components/Settings.jsx';
+import ProfileMenu from './components/ProfileMenu.jsx';
+import ReleaseNotes from './components/ReleaseNotes.jsx';
+import UserIcon from './components/UserIcon.jsx';
+import { VERSION } from './lib/version.js';
 import BackupChip from './components/BackupChip.jsx';
 import MonthlyRecords from './components/MonthlyRecords.jsx';
 import MemberHistory from './components/MemberHistory.jsx';
 import ConnectPage from './components/ConnectPage.jsx';
+import AboutPage from './components/AboutPage.jsx';
 import useBackup from './lib/useBackup.js';
 import {
   loadMembers, addMembers, updateMember, deleteMember, loadLegacyMembers, clearLegacyMembers,
@@ -15,23 +19,13 @@ import {
 const TABS = [
   { key: 'members', label: 'Members', menuLabel: 'Members' },
   { key: 'add', label: 'Add member', menuLabel: 'Add Member' },
-  { key: 'import', label: 'Import from Excel', menuLabel: 'Import Data' },
   { key: 'history', label: 'Monthly records', menuLabel: 'Monthly Records' },
   { key: 'connect', label: 'Connect', menuLabel: 'Connect Google Sheet', adminOnly: true },
 ];
 
-function UserIcon({ size = 22 }) {
-  return (
-    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor"
-      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
-    </svg>
-  );
-}
-
 export default function GymApp({ user, role, onLogout }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showNotes, setShowNotes] = useState(false); // the release notes window
   const [historySearch, setHistorySearch] = useState('');
   const topbarRef = useRef(null);
   const [members, setMembers] = useState([]);
@@ -45,7 +39,7 @@ export default function GymApp({ user, role, onLogout }) {
   const ready = load.status === 'ready';
   const visibleTabs = TABS.filter((t) => !t.adminOnly || isAdmin);
   // The load problem banner belongs to the member pages, not to Profile or Connect.
-  const showLoadProblem = tab !== 'settings' && tab !== 'connect';
+  const showLoadProblem = !['settings', 'connect', 'about'].includes(tab);
 
   // Changes to the sheet run one at a time so their answers can't arrive out of order.
   const queue = useRef(Promise.resolve());
@@ -118,13 +112,6 @@ export default function GymApp({ user, role, onLogout }) {
     return list.find((m) => m.phone === member.phone) || member;
   });
 
-  const addMany = (batch) => run(async () => {
-    const { members: list, skipped, warning } = await addMembers(batch);
-    setMembers(list);
-    if (warning) setActionError(warning);
-    return { saved: batch.length - skipped.length, skipped };
-  });
-
   const editMember = (member) => run(async () => {
     const { members: list, warning } = await updateMember(member);
     setMembers(list);
@@ -190,7 +177,7 @@ export default function GymApp({ user, role, onLogout }) {
               <span className="avatar"><UserIcon /></span>
               <span className="profile-name">
                 <b>{user}</b>
-                <small>{isAdmin ? 'Admin' : 'Staff'} · Profile</small>
+                <small>{isAdmin ? 'Admin' : 'Staff'} · Settings</small>
               </span>
             </button>
             {visibleTabs.map((t) => (
@@ -202,7 +189,20 @@ export default function GymApp({ user, role, onLogout }) {
                 {t.menuLabel}
               </button>
             ))}
+            <button
+              className={tab === 'about' ? 'menu-item active' : 'menu-item'}
+              onClick={() => goTo('about')}
+            >
+              About Us
+            </button>
             <div className="menu-foot">
+              <button
+                className="link version-btn"
+                onClick={() => { setMenuOpen(false); setShowNotes(true); }}
+                title="See release notes"
+              >
+                {VERSION}
+              </button>
               <BackupChip backup={backup} />
               <button className="secondary small" onClick={onLogout}>Sign out</button>
             </div>
@@ -229,17 +229,18 @@ export default function GymApp({ user, role, onLogout }) {
         </nav>
         <div className="userbox desktop-only">
           <BackupChip backup={backup} />
-          <button
-            className={tab === 'settings' ? 'user-icon active' : 'user-icon'}
-            title={`Profile — ${user}${isAdmin ? ' (admin)' : ''}`}
-            aria-label={`Profile (signed in as ${user}${isAdmin ? ', admin' : ''})`}
-            onClick={() => goTo('settings')}
-          >
-            <UserIcon />
-          </button>
-          <button className="secondary small" onClick={onLogout}>Sign out</button>
+          <ProfileMenu
+            user={user}
+            isAdmin={isAdmin}
+            active={tab === 'settings'}
+            onSettings={() => goTo('settings')}
+            onAbout={() => goTo('about')}
+            onShowVersion={() => setShowNotes(true)}
+            onLogout={onLogout}
+          />
         </div>
       </header>
+      {showNotes && <ReleaseNotes onClose={() => setShowNotes(false)} />}
 
       {showLoadProblem && load.status === 'error' && load.code === 'not-configured' && (
         isAdmin ? (
@@ -285,9 +286,6 @@ export default function GymApp({ user, role, onLogout }) {
           />
         )}
         {ready && tab === 'add' && <MemberForm members={members} onAdd={addMember} />}
-        {ready && tab === 'import' && (
-          <BulkImport members={members} onImport={addMany} onDone={() => setTab('members')} />
-        )}
         {tab === 'history' && (
           historySearch ? (
             <MemberHistory
@@ -312,6 +310,7 @@ export default function GymApp({ user, role, onLogout }) {
             onUnauthorized={onLogout}
           />
         )}
+        {tab === 'about' && <AboutPage onShowVersion={() => setShowNotes(true)} />}
         {tab === 'connect' && isAdmin && (
           <ConnectPage
             onConnected={() => { refresh(); setTab('members'); }}

@@ -56,7 +56,7 @@ async function withServerSheet(fn, { authUsers = '' } = {}) {
   }
 }
 
-const newAccount = (over = {}) => ({ username: 'Owner', password: 'correct horse', email: 'Owner@Gmail.com', ...over });
+const newAccount = (over = {}) => ({ acceptedTerms: true, username: 'Owner', password: 'correct horse', email: 'Owner@Gmail.com', ...over });
 
 test('email validation', () => {
   assert.deepEqual(validateEmail(' Owner@Gmail.com '), { email: 'owner@gmail.com' });
