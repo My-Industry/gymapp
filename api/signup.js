@@ -1,7 +1,11 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { hashPassword, normalizeUsername, parseUsers, readBody, sendJson } from './_lib/auth.js';
-import { validateNewUser, addUserToEnvText, isLocalRequest } from './_lib/signup.js';
+import { validateNewUser, validateEmail, addUserToEnvText, isLocalRequest } from './_lib/signup.js';
+import { getAccountStore } from './_lib/accounts.js';
 
+// With GOOGLE_SHEET_ID_server set, new accounts are saved in that sheet (username, password hash,
+// email) and work immediately, locally and on Vercel. Without it, the older way below is used.
+//
 // AUTH_ENV_FILE is only set by the local dev server (vite.config.js). When it
 // is set and the request comes from this machine, the account is saved to
 // .env.local. On Vercel it is never set, so the entry is just returned.
@@ -11,7 +15,7 @@ export default async function handler(req, res) {
     return sendJson(res, 405, { error: 'Method not allowed' });
   }
 
-  const { username, password } = readBody(req);
+  const { username, password, email } = readBody(req);
   const problem = validateNewUser(username, password);
   if (problem) return sendJson(res, 400, { error: problem });
 
@@ -21,6 +25,10 @@ export default async function handler(req, res) {
   }
 
   const hash = hashPassword(password);
+
+  const accounts = getAccountStore();
+  if (accounts) return signUpInSheet(res, accounts, { name, hash, email });
+
   const entry = `${name}:${hash}`;
 
   const file = process.env.AUTH_ENV_FILE;
@@ -39,5 +47,23 @@ export default async function handler(req, res) {
   } catch (err) {
     console.error(err);
     return sendJson(res, 500, { error: "Couldn't save to .env.local. Add this account manually instead.", entry });
+  }
+}
+
+async function signUpInSheet(res, accounts, { name, hash, email }) {
+  const mail = validateEmail(email);
+  if (mail.error) return sendJson(res, 400, { error: mail.error });
+  if (String(process.env.AUTH_SECRET || '').length < 32) {
+    return sendJson(res, 500, { error: 'AUTH_SECRET is not set on the server, so nobody can sign in yet (see README).' });
+  }
+  try {
+    // Everyone who signs up is the admin of their own account. Staff accounts will be added later
+    // from an "Add staff" section, not from this page.
+    await accounts.add({ username: name, hash, email: mail.email, role: 'admin' });
+    return sendJson(res, 201, { saved: true, storage: 'sheet', user: name });
+  } catch (err) {
+    if (err.code === 'conflict') return sendJson(res, 409, { error: err.message });
+    console.error(err.message);
+    return sendJson(res, 503, { error: "Couldn't save the account to the accounts sheet. Please try again in a moment." });
   }
 }

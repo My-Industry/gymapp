@@ -74,3 +74,19 @@ export function loadLegacyMembers() {
 export function clearLegacyMembers() {
   try { localStorage.removeItem(LEGACY_KEY); } catch { /* ignore */ }
 }
+
+// ---- the Google Sheet this gym connected (Profile -> Google Sheets) ----------
+
+/** { connected, serviceEmail?, sheetLink?, sheetId? } - never includes the private key. */
+export async function getConnection() {
+  return call('GET', undefined, '/api/connection');
+}
+
+/** Tests the details against Google, then saves them. Returns { connected, ..., title }. */
+export async function connectSheet({ serviceEmail, privateKey, sheetLink }) {
+  return call('POST', { serviceEmail, privateKey, sheetLink }, '/api/connection');
+}
+
+export async function disconnectSheet() {
+  return call('DELETE', undefined, '/api/connection');
+}

@@ -6,6 +6,7 @@ import Settings from './components/Settings.jsx';
 import BackupChip from './components/BackupChip.jsx';
 import MonthlyRecords from './components/MonthlyRecords.jsx';
 import MemberHistory from './components/MemberHistory.jsx';
+import ConnectPage from './components/ConnectPage.jsx';
 import useBackup from './lib/useBackup.js';
 import {
   loadMembers, addMembers, updateMember, deleteMember, loadLegacyMembers, clearLegacyMembers,
@@ -16,6 +17,7 @@ const TABS = [
   { key: 'add', label: 'Add member', menuLabel: 'Add Member' },
   { key: 'import', label: 'Import from Excel', menuLabel: 'Import Data' },
   { key: 'history', label: 'Monthly records', menuLabel: 'Monthly Records' },
+  { key: 'connect', label: 'Connect', menuLabel: 'Connect Google Sheet', adminOnly: true },
 ];
 
 function UserIcon({ size = 22 }) {
@@ -41,6 +43,9 @@ export default function GymApp({ user, role, onLogout }) {
   const backup = useBackup(members);
   const isAdmin = role === 'admin';
   const ready = load.status === 'ready';
+  const visibleTabs = TABS.filter((t) => !t.adminOnly || isAdmin);
+  // The load problem banner belongs to the member pages, not to Profile or Connect.
+  const showLoadProblem = tab !== 'settings' && tab !== 'connect';
 
   // Changes to the sheet run one at a time so their answers can't arrive out of order.
   const queue = useRef(Promise.resolve());
@@ -65,7 +70,7 @@ export default function GymApp({ user, role, onLogout }) {
       })
       .catch((err) => {
         if (err.unauthorized) { logoutRef.current(); return; }
-        setLoad({ status: 'error', error: err.message });
+        setLoad({ status: 'error', error: err.message, code: err.code });
       });
   }, []);
 
@@ -181,15 +186,14 @@ export default function GymApp({ user, role, onLogout }) {
             <button
               className={tab === 'settings' ? 'menu-item profile active' : 'menu-item profile'}
               onClick={() => goTo('settings')}
-              disabled={!isAdmin}
             >
               <span className="avatar"><UserIcon /></span>
               <span className="profile-name">
                 <b>{user}</b>
-                {isAdmin && <small>Admin · Profile</small>}
+                <small>{isAdmin ? 'Admin' : 'Staff'} · Profile</small>
               </span>
             </button>
-            {TABS.map((t) => (
+            {visibleTabs.map((t) => (
               <button
                 key={t.key}
                 className={tab === t.key ? 'menu-item active' : 'menu-item'}
@@ -213,7 +217,7 @@ export default function GymApp({ user, role, onLogout }) {
           </div>
         </div>
         <nav className="tabs desktop-only">
-          {TABS.map((t) => (
+          {visibleTabs.map((t) => (
             <button
               key={t.key}
               className={tab === t.key ? 'tab active' : 'tab'}
@@ -229,8 +233,7 @@ export default function GymApp({ user, role, onLogout }) {
             className={tab === 'settings' ? 'user-icon active' : 'user-icon'}
             title={`Profile — ${user}${isAdmin ? ' (admin)' : ''}`}
             aria-label={`Profile (signed in as ${user}${isAdmin ? ', admin' : ''})`}
-            onClick={() => setTab('settings')}
-            disabled={!isAdmin}
+            onClick={() => goTo('settings')}
           >
             <UserIcon />
           </button>
@@ -238,7 +241,22 @@ export default function GymApp({ user, role, onLogout }) {
         </div>
       </header>
 
-      {load.status === 'error' && (
+      {showLoadProblem && load.status === 'error' && load.code === 'not-configured' && (
+        isAdmin ? (
+          <div className="card narrow connect-card">
+            <h2>Connect your Google Sheet</h2>
+            <p className="muted small-text">
+              Your members can't load because no Google Sheet is connected yet. Connect your Google Sheet account here to get started.
+            </p>
+            <button className="primary" onClick={() => goTo('connect')}>Connect</button>
+          </div>
+        ) : (
+          <div className="alert error">
+            No Google Sheet is connected yet. Ask an admin to connect one from the Profile page.
+          </div>
+        )
+      )}
+      {showLoadProblem && load.status === 'error' && load.code !== 'not-configured' && (
         <div className="alert error">
           Couldn't load members from Google Sheets. {load.error}{' '}
           <button className="secondary small" onClick={refresh}>Try again</button>
@@ -256,7 +274,7 @@ export default function GymApp({ user, role, onLogout }) {
       )}
 
       <main>
-        {load.status === 'loading' && <p className="muted">Loading members…</p>}
+        {showLoadProblem && load.status === 'loading' && <p className="muted">Loading members…</p>}
         {ready && tab === 'members' && (
           <MemberList
             members={members}
@@ -284,7 +302,23 @@ export default function GymApp({ user, role, onLogout }) {
             <MonthlyRecords onUnauthorized={onLogout} />
           )
         )}
-        {tab === 'settings' && isAdmin && <Settings backup={backup} memberCount={members.length} />}
+        {tab === 'settings' && (
+          <Settings
+            user={user}
+            isAdmin={isAdmin}
+            backup={backup}
+            memberCount={members.length}
+            onConnectionChange={refresh}
+            onUnauthorized={onLogout}
+          />
+        )}
+        {tab === 'connect' && isAdmin && (
+          <ConnectPage
+            onConnected={() => { refresh(); setTab('members'); }}
+            onUnauthorized={onLogout}
+            onOpenProfile={() => goTo('settings')}
+          />
+        )}
       </main>
     </div>
   );

@@ -1,10 +1,7 @@
 // Run with: npm test
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  hashPassword, verifyPassword, parseUsers, readConfig, checkLogin,
-  createToken, verifyToken, parseCookies, COOKIE_NAME, SESSION_SECONDS, roleOf,
-} from '../api/_lib/auth.js';
+import { hashPassword, verifyPassword, parseUsers, readConfig, checkLogin, createToken, verifyToken, parseCookies, COOKIE_NAME, SESSION_SECONDS, roleOf,} from '../api/_lib/auth.js';
 import login from '../api/login.js';
 import me from '../api/me.js';
 import logout from '../api/logout.js';
@@ -93,7 +90,7 @@ test('POST /api/login sets an httpOnly cookie that /api/me accepts', async () =>
   for (const flag of ['HttpOnly', 'SameSite=Lax', 'Secure', 'Path=/']) assert.ok(cookie.includes(flag), flag);
 
   const meRes = mockRes();
-  me({ method: 'GET', headers: { cookie: cookie.split(';')[0] } }, meRes);
+  await me({ method: 'GET', headers: { cookie: cookie.split(';')[0] } }, meRes);
   assert.equal(meRes.statusCode, 200);
   assert.deepEqual(meRes.body, { user: 'owner', role: 'admin' });
 });
@@ -155,21 +152,21 @@ test('login reports a server error when env vars are missing', async () => {
   assert.equal(res.statusCode, 500);
 });
 
-test('/api/me rejects missing, forged, and removed-user sessions', () => {
+test('/api/me rejects missing, forged, and removed-user sessions', async () => {
   setEnv();
   const none = mockRes();
-  me({ method: 'GET', headers: {} }, none);
+  await me({ method: 'GET', headers: {} }, none);
   assert.equal(none.statusCode, 401);
 
   const forged = mockRes();
-  me({ method: 'GET', headers: { cookie: `${COOKIE_NAME}=abc.def` } }, forged);
+  await me({ method: 'GET', headers: { cookie: `${COOKIE_NAME}=abc.def` } }, forged);
   assert.equal(forged.statusCode, 401);
 
   // valid signature, but the user was later removed from AUTH_USERS
   const token = createToken('desk', SECRET);
   process.env.AUTH_USERS = `owner:${OWNER_HASH}`;
   const removed = mockRes();
-  me({ method: 'GET', headers: { cookie: `${COOKIE_NAME}=${token}` } }, removed);
+  await me({ method: 'GET', headers: { cookie: `${COOKIE_NAME}=${token}` } }, removed);
   assert.equal(removed.statusCode, 401);
 });
 

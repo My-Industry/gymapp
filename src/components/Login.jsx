@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { login } from '../lib/auth.js';
 
-export default function Login({ onLogin, onSignUp, notice = '', initialUsername = '' }) {
+export default function Login({ onLogin, onSignUp, onForgot, notice = '', initialUsername = '', success = '' }) {
   const [username, setUsername] = useState(initialUsername);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -30,6 +30,7 @@ export default function Login({ onLogin, onSignUp, notice = '', initialUsername 
           <p className="muted">Sign in to continue</p>
         </div>
 
+        {success && !error && <div className="alert success" role="status">{success}</div>}
         {(error || notice) && <div className="alert error" role="alert">{error || notice}</div>}
 
         <label>
@@ -55,6 +56,8 @@ export default function Login({ onLogin, onSignUp, notice = '', initialUsername 
             required
           />
         </label>
+
+        <button type="button" className="link forgot-link" onClick={onForgot}>Forgot password?</button>
 
         <button className="primary" type="submit" disabled={busy || !username || !password}>
           {busy ? 'Signing in…' : 'Sign in'}

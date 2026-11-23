@@ -3,6 +3,7 @@ import { signup } from '../lib/auth.js';
 
 export default function SignUp({ onSignedUp, onBack }) {
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
@@ -21,7 +22,7 @@ export default function SignUp({ onSignedUp, onBack }) {
     }
     setBusy(true);
     setError('');
-    const r = await signup(username, password);
+    const r = await signup(username, password, email);
     setBusy(false);
     setPassword('');
     setConfirm('');
@@ -36,6 +37,23 @@ export default function SignUp({ onSignedUp, onBack }) {
     } catch {
       setCopied(false);
     }
+  }
+
+  if (result?.storage === 'sheet') {
+    return (
+      <div className="login-wrap">
+        <div className="card login-card form">
+          <div className="login-brand">
+            <span className="logo" aria-hidden>✅</span>
+            <h1>Account created</h1>
+          </div>
+          <div className="alert success">
+            Welcome, <b>{result.user}</b>! Your account is ready. You can sign in now.
+          </div>
+          <button type="button" className="primary" onClick={() => onSignedUp(result.user)}>Go to sign in</button>
+        </div>
+      </div>
+    );
   }
 
   if (result) {
@@ -78,7 +96,7 @@ export default function SignUp({ onSignedUp, onBack }) {
         <div className="login-brand">
           <span className="logo" aria-hidden>🏋️</span>
           <h1>Create account</h1>
-          <p className="muted">Choose a username and password</p>
+          <p className="muted">Choose a username, email and password</p>
         </div>
 
         {error && <div className="alert error" role="alert">{error}</div>}
@@ -95,6 +113,19 @@ export default function SignUp({ onSignedUp, onBack }) {
             required
           />
           <span className="hint muted">3–32 characters: letters, numbers, . - _</span>
+        </label>
+        <label>
+          Email address
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+            autoCapitalize="none"
+            placeholder="you@gmail.com"
+            required
+          />
+          <span className="hint muted">Used to reset your password if you forget it</span>
         </label>
         <label>
           Password
@@ -120,7 +151,7 @@ export default function SignUp({ onSignedUp, onBack }) {
           {mismatch && <span className="hint bad">Passwords don't match</span>}
         </label>
 
-        <button className="primary" type="submit" disabled={busy || !username || !password || !confirm || mismatch}>
+        <button className="primary" type="submit" disabled={busy || !username || !email || !password || !confirm || mismatch}>
           {busy ? 'Creating…' : 'Create account'}
         </button>
         <button type="button" className="link center" onClick={onBack}>

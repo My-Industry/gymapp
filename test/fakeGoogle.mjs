@@ -93,5 +93,5 @@ export function makeFakeGoogle(config, { rows = [], hasTab = true, months = {}, 
     throw new Error(`unexpected request: ${u}`);
   };
 
-  return { state, store: createSheetStore(config, fetchImpl, { today: () => today }) };
+  return { state, fetchImpl, store: createSheetStore(config, fetchImpl, { today: () => today }) };
 }
