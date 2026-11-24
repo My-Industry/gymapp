@@ -10,6 +10,8 @@ import BackupChip from './components/BackupChip.jsx';
 import MonthlyRecords from './components/MonthlyRecords.jsx';
 import MemberHistory from './components/MemberHistory.jsx';
 import AboutPage from './components/AboutPage.jsx';
+import CampaignsPage from './components/CampaignsPage.jsx';
+import AttendancePage from './components/AttendancePage.jsx';
 import SheetGuidePage from './components/SheetGuidePage.jsx';
 import useBackup from './lib/useBackup.js';
 import {
@@ -20,6 +22,8 @@ const TABS = [
   { key: 'members', label: 'Members', menuLabel: 'Members' },
   { key: 'add', label: 'Add member', menuLabel: 'Add Member' },
   { key: 'history', label: 'Monthly records', menuLabel: 'Monthly Records' },
+  { key: 'attendance', label: 'Attendance', menuLabel: 'Attendance', tag: 'Beta' },
+  { key: 'campaigns', label: 'Campaigns', menuLabel: 'Campaigns', tag: 'Soon' },
 ];
 
 export default function GymApp({ user, role, onLogout }) {
@@ -38,7 +42,7 @@ export default function GymApp({ user, role, onLogout }) {
   const isAdmin = role === 'admin';
   const ready = load.status === 'ready';
   // The load problem banner belongs to the member pages, not to Profile or Connect.
-  const showLoadProblem = !['settings', 'about', 'guide'].includes(tab);
+  const showLoadProblem = !['settings', 'about', 'guide', 'campaigns', 'attendance'].includes(tab);
 
   // Changes to the sheet run one at a time so their answers can't arrive out of order.
   const queue = useRef(Promise.resolve());
@@ -190,6 +194,7 @@ export default function GymApp({ user, role, onLogout }) {
                 onClick={() => goTo(t.key)}
               >
                 {t.menuLabel}
+                {t.tag && <span className={`soon-badge tab-soon ${t.tag === 'Beta' ? 'beta-badge' : ''}`}>{t.tag}</span>}
               </button>
             ))}
             <button
@@ -227,6 +232,7 @@ export default function GymApp({ user, role, onLogout }) {
               onClick={() => goTo(t.key)}
             >
               {t.label}
+              {t.tag && <span className={`soon-badge tab-soon ${t.tag === 'Beta' ? 'beta-badge' : ''}`}>{t.tag}</span>}
             </button>
           ))}
         </nav>
@@ -325,6 +331,8 @@ export default function GymApp({ user, role, onLogout }) {
             canConnect={isAdmin}
           />
         )}
+        {tab === 'campaigns' && <CampaignsPage />}
+        {tab === 'attendance' && <AttendancePage />}
         {tab === 'about' && <AboutPage onShowVersion={() => setShowNotes(true)} />}
       </main>
     </div>
