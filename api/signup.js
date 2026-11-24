@@ -2,6 +2,8 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { hashPassword, normalizeUsername, parseUsers, readBody, sendJson } from './_lib/auth.js';
 import { validateNewUser, validateEmail, addUserToEnvText, isLocalRequest } from './_lib/signup.js';
 import { getAccountStore } from './_lib/accounts.js';
+import { sendWelcomeEmail } from './_lib/mailer.js';
+import { appBaseUrl } from './_lib/resetToken.js';
 
 // With GOOGLE_SHEET_ID_server set, new accounts are saved in that sheet (username, password hash,
 // email) and work immediately, locally and on Vercel. Without it, the older way below is used.
@@ -30,7 +32,7 @@ export default async function handler(req, res) {
   const hash = hashPassword(password);
 
   const accounts = getAccountStore();
-  if (accounts) return signUpInSheet(res, accounts, { name, hash, email });
+  if (accounts) return signUpInSheet(req, res, accounts, { name, hash, email });
 
   const entry = `${name}:${hash}`;
 
@@ -53,7 +55,7 @@ export default async function handler(req, res) {
   }
 }
 
-async function signUpInSheet(res, accounts, { name, hash, email }) {
+async function signUpInSheet(req, res, accounts, { name, hash, email }) {
   const mail = validateEmail(email);
   if (mail.error) return sendJson(res, 400, { error: mail.error });
   if (String(process.env.AUTH_SECRET || '').length < 32) {
@@ -63,6 +65,13 @@ async function signUpInSheet(res, accounts, { name, hash, email }) {
     // Everyone who signs up is the admin of their own account. Staff accounts will be added later
     // from an "Add staff" section, not from this page.
     await accounts.add({ username: name, hash, email: mail.email, role: 'admin' });
+    // The account exists now, so a failed email must never fail the sign up. Awaited (not fire-and-forget)
+    // because a serverless function can be stopped as soon as it has responded.
+    try {
+      await sendWelcomeEmail({ to: mail.email, username: name, appUrl: appBaseUrl(process.env, req) });
+    } catch (err) {
+      console.error(`Welcome email not sent: ${err.message}`);
+    }
     return sendJson(res, 201, { saved: true, storage: 'sheet', user: name });
   } catch (err) {
     if (err.code === 'conflict') return sendJson(res, 409, { error: err.message });

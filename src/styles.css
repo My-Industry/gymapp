@@ -137,7 +137,7 @@ summary { cursor: pointer; font-weight: 600; font-size: .9rem; margin-bottom: .5
 .settings code { background: #f3f4f6; padding: .05rem .3rem; border-radius: 4px; font-size: .85em; }
 .secondary.small { padding: .35rem .7rem; font-size: .82rem; }
 
-.login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 1rem; }
+.login-wrap { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 1rem; }
 .login-card { width: 100%; max-width: 380px; margin: 0; padding: 1.75rem; }
 .login-brand { text-align: center; margin-bottom: .25rem; }
 .login-brand .logo { font-size: 2.4rem; display: block; margin-bottom: .25rem; }
@@ -333,6 +333,11 @@ textarea.entry {
   font-size: .9rem; border-radius: 8px;
 }
 .lang-toggle button.active { background: var(--card); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, .1); }
+@media (max-width: 720px) {
+  /* Phones: all five languages stay on one line, sharing the width. */
+  .lang-toggle { flex-wrap: nowrap; align-self: stretch; gap: .1rem; }
+  .lang-toggle button { flex: 1 1 0; min-width: 0; padding: .45rem .15rem; font-size: .8rem; white-space: nowrap; }
+}
 
 /* Release notes window. */
 .modal-backdrop {
@@ -465,3 +470,29 @@ textarea.entry {
 .start-today { text-align: left; font-weight: 400; padding: .1rem 0; text-decoration: underline; }
 .danger-btn { color: var(--bad); border-color: #f1c4c4; }
 .danger-btn:hover { background: var(--bad-bg); }
+
+/* Campaigns page (preview, read-only): small explainer cards. */
+.campaigns .card h2 { margin-bottom: .6rem; }
+.campaign-lead { margin: 0 0 .75rem; line-height: 1.55; }
+.mini-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: .75rem; }
+.mini-card {
+  display: grid; gap: .3rem; align-content: start; padding: .85rem;
+  background: #f9fafb; border: 1px solid var(--border); border-radius: 10px;
+}
+.mini-card b { font-size: .95rem; }
+.mini-card p { margin: 0; color: var(--muted); font-size: .85rem; line-height: 1.45; }
+.mini-icon { font-size: 1.4rem; line-height: 1; }
+@media (max-width: 720px) {
+  .mini-grid { grid-template-columns: 1fr 1fr; gap: .5rem; }
+  .mini-card { padding: .7rem; }
+}
+@media (max-width: 400px) {
+  .mini-grid { grid-template-columns: 1fr; }
+}
+.tab-soon { margin-left: .4rem; padding: .05rem .4rem; font-size: .65rem; vertical-align: middle; }
+
+/* Attendance page (beta). */
+.beta-badge { background: #e6f0fd; color: #1f5fbf; }
+.machine-note { margin-bottom: .75rem; }
+.machine-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.machine-models { color: var(--text); }
